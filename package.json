@@ -1,0 +1,20 @@
+{
+  "name": "whole-house-status-addon",
+  "version": "0.1.0",
+  "description": "Home Assistant Add-on for whole-house device status monitoring.",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "test:unit": "node --test test/*.test.js",
+    "test:frontend": "playwright test test/frontend.spec.js",
+    "verify": "npm run test:unit && npm run test:frontend"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.45.0"
+  }
+}
