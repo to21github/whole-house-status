@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>全屋设备状态</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <main class="page">
+      <h1 id="title" class="title">全屋设备状态</h1>
+
+      <section class="stats" aria-label="设备状态统计">
+        <article class="stat">
+          <p>在线</p>
+          <strong id="stat-online">0</strong>
+        </article>
+        <article class="stat">
+          <p>开启</p>
+          <strong id="stat-on" class="green">0</strong>
+        </article>
+        <article class="stat">
+          <p>超时/高功率</p>
+          <strong id="stat-warning" class="orange">0</strong>
+        </article>
+        <article class="stat">
+          <p>离线/故障</p>
+          <strong id="stat-error" class="red">0</strong>
+        </article>
+      </section>
+
+      <nav id="rooms" class="rooms" aria-label="房间筛选"></nav>
+      <div id="connection" class="connection" hidden></div>
+      <hr class="divider">
+      <section id="alerts" class="cards alerts" aria-label="异常设备"></section>
+      <hr class="divider">
+      <section id="devices" class="cards" aria-label="设备列表"></section>
+    </main>
+  </body>
+</html>

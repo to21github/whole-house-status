@@ -1,0 +1,269 @@
+:root {
+  --background: #101010;
+  --panel: #191919;
+  --border: #343434;
+  --divider: #3a3a3a;
+  --text: #d6d6d6;
+  --muted: #a6a6a6;
+  --green: #00ff4c;
+  --orange: #f3a11a;
+  --red: #ff001e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+  background: var(--background);
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  letter-spacing: 0;
+}
+
+button {
+  font: inherit;
+}
+
+.page {
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: clamp(28px, 5vw, 64px);
+}
+
+.title {
+  min-width: 0;
+  margin: 0 0 32px;
+  padding: 0 0 24px;
+  border-bottom: 1px solid var(--divider);
+  color: var(--text);
+  font-size: clamp(30px, 3vw, 44px);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 274px));
+  justify-content: center;
+  gap: 16px;
+}
+
+.stat,
+.device-card {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.stat {
+  min-height: 154px;
+  padding: 24px;
+}
+
+.stat p,
+.device-meta,
+.device-status,
+.empty-state {
+  margin: 0;
+}
+
+.stat p {
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.stat strong {
+  display: block;
+  margin-top: 16px;
+  color: var(--text);
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.rooms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.rooms button {
+  width: 118px;
+  min-height: 54px;
+  padding: 0 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rooms button:hover,
+.rooms button:focus-visible {
+  border-color: var(--muted);
+}
+
+.rooms button.active {
+  border-color: #d5d5d5;
+  background: #d5d5d5;
+  color: #222;
+}
+
+.connection {
+  min-width: 0;
+  margin-top: 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--orange);
+  border-radius: 8px;
+  background: rgb(243 161 26 / 8%);
+  color: var(--orange);
+  font-size: 16px;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.connection[hidden] {
+  display: none;
+}
+
+.divider {
+  height: 0;
+  margin: 32px 0;
+  border: 0;
+  border-top: 1px solid var(--divider);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(274px, 1fr));
+  gap: 16px;
+}
+
+.device-card {
+  min-height: 146px;
+  padding: 20px;
+}
+
+.alert-card {
+  border-color: var(--orange);
+}
+
+.device-name {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-meta {
+  margin-top: 10px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-status {
+  min-width: 0;
+  margin-top: 20px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-state {
+  grid-column: 1 / -1;
+  padding: 22px 0;
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.green {
+  color: var(--green) !important;
+}
+
+.orange {
+  color: var(--orange) !important;
+}
+
+.red {
+  color: var(--red) !important;
+}
+
+@media (max-width: 920px) {
+  .page {
+    padding: 20px 18px 48px;
+  }
+
+  .title {
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .stat {
+    min-height: 132px;
+    padding: 20px;
+  }
+
+  .stat strong {
+    font-size: 36px;
+  }
+
+  .rooms {
+    gap: 10px;
+    margin-top: 24px;
+  }
+
+  .rooms button {
+    flex: 1 1 calc((100% - 20px) / 3);
+    min-width: 96px;
+    font-size: 20px;
+  }
+
+  .divider {
+    margin: 24px 0;
+  }
+
+  .cards {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+}
