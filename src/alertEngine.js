@@ -12,6 +12,8 @@ const ACTIVE_STATES = new Set([
   'running',
   'playing',
   'heat',
+  'auto',
+  'heat_cool',
   'cool',
   'dry',
   'fan_only',
@@ -66,11 +68,30 @@ function isActive(entity) {
 }
 
 function parsePower(entity) {
-  if (!entity) {
+  if (!entity || typeof entity.state !== 'string' || !entity.state.trim()) {
     return null;
   }
   const number = Number(entity.state);
   return Number.isFinite(number) ? number : null;
+}
+
+function parseTimestamp(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value !== 'string' || !value.trim()) {
+    return null;
+  }
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function hasValidEntityId(entity) {
+  return Boolean(
+    entity &&
+    typeof entity.entity_id === 'string' &&
+    entity.entity_id.trim()
+  );
 }
 
 class AlertEngine {
@@ -78,11 +99,38 @@ class AlertEngine {
     this.options = options;
     this.activeSince = new Map();
     this.powerSince = new Map();
+    this.lastObservedAt = new Map();
   }
 
   reset(entityId) {
     this.activeSince.delete(entityId);
     this.powerSince.delete(entityId);
+  }
+
+  prune(validEntityIds) {
+    const validIds = new Set(validEntityIds);
+    for (const map of [this.activeSince, this.powerSince, this.lastObservedAt]) {
+      for (const entityId of map.keys()) {
+        if (!validIds.has(entityId)) {
+          map.delete(entityId);
+        }
+      }
+    }
+  }
+
+  getObservationTime(entityId, now) {
+    const previous = this.lastObservedAt.get(entityId);
+    let observationTime = Number.isFinite(now) ? now : Date.now();
+
+    if (!Number.isFinite(observationTime)) {
+      observationTime = Number.isFinite(previous) ? previous : 0;
+    }
+    if (Number.isFinite(previous) && observationTime < previous) {
+      observationTime = previous;
+    }
+
+    this.lastObservedAt.set(entityId, observationTime);
+    return observationTime;
   }
 
   getOnDurationRule(entityId) {
@@ -101,12 +149,20 @@ class AlertEngine {
   }
 
   evaluate(entity, statesById = {}, now = Date.now()) {
-    const entityId = entity && entity.entity_id;
+    if (!hasValidEntityId(entity)) {
+      return {
+        status: STATUS.ERROR,
+        label: '故障',
+        color: 'red',
+        reason: 'invalid_entity'
+      };
+    }
+
+    const entityId = entity.entity_id;
+    const observationTime = this.getObservationTime(entityId, now);
 
     if (isUnavailable(entity)) {
-      if (entityId) {
-        this.reset(entityId);
-      }
+      this.reset(entityId);
       return {
         status: STATUS.ERROR,
         label: '离线',
@@ -148,7 +204,11 @@ class AlertEngine {
     }
 
     if (!this.activeSince.has(entityId)) {
-      this.activeSince.set(entityId, now);
+      const lastChanged = parseTimestamp(entity.last_changed);
+      this.activeSince.set(
+        entityId,
+        lastChanged !== null && lastChanged < observationTime ? lastChanged : observationTime
+      );
     }
 
     const highPowerRule = this.getHighPowerRule(entityId);
@@ -156,9 +216,9 @@ class AlertEngine {
       const power = parsePower(statesById[highPowerRule.power_sensor]);
       if (power !== null && power > highPowerRule.threshold_w) {
         if (!this.powerSince.has(entityId)) {
-          this.powerSince.set(entityId, now);
+          this.powerSince.set(entityId, observationTime);
         }
-        if (now - this.powerSince.get(entityId) >= minutesToMs(highPowerRule.duration_minutes)) {
+        if (observationTime - this.powerSince.get(entityId) >= minutesToMs(highPowerRule.duration_minutes)) {
           return {
             status: STATUS.WARNING,
             label: '高功率',
@@ -173,7 +233,7 @@ class AlertEngine {
     }
 
     const onDurationRule = this.getOnDurationRule(entityId);
-    if (now - this.activeSince.get(entityId) >= minutesToMs(onDurationRule.duration_minutes)) {
+    if (observationTime - this.activeSince.get(entityId) >= minutesToMs(onDurationRule.duration_minutes)) {
       return {
         status: STATUS.WARNING,
         label: '超时',
