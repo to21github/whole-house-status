@@ -2,7 +2,6 @@ name: Whole House Status
 version: "0.1.0"
 slug: whole_house_status
 description: 全屋设备状态监控面板
-url: https://github.com/local/whole-house-status-addon
 arch:
   - aarch64
   - amd64

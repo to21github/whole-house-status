@@ -58,10 +58,11 @@ function normalizeOverrides(value) {
 
 function normalizeOptions(raw = {}) {
   const base = clone(DEFAULT_OPTIONS);
-  const display = raw.display || {};
-  const entities = raw.entities || {};
-  const rooms = raw.rooms || {};
-  const alerts = raw.alerts || {};
+  const options = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const display = options.display || {};
+  const entities = options.entities || {};
+  const rooms = options.rooms || {};
+  const alerts = options.alerts || {};
 
   base.display.title = typeof display.title === 'string' && display.title ? display.title : base.display.title;
   base.display.default_room = typeof display.default_room === 'string' && display.default_room ? display.default_room : base.display.default_room;
@@ -80,11 +81,10 @@ function normalizeOptions(raw = {}) {
 
   base.rooms.overrides = normalizeOverrides(rooms.overrides);
   base.rooms.order = asArray(rooms.order).filter((room) => typeof room === 'string' && room);
-  if (!base.rooms.order.includes('全部')) {
-    base.rooms.order.unshift('全部');
-  }
   if (base.rooms.order.length === 0) {
     base.rooms.order = clone(DEFAULT_OPTIONS.rooms.order);
+  } else if (!base.rooms.order.includes('全部')) {
+    base.rooms.order.unshift('全部');
   }
 
   base.alerts.default_on_duration_minutes = asPositiveNumber(
@@ -116,13 +116,18 @@ function normalizeOptions(raw = {}) {
   return base;
 }
 
-function loadOptions(path = process.env.OPTIONS_PATH || '/data/options.json') {
+function loadOptions(path = process.env.OPTIONS_PATH || '/data/options.json', logger = console) {
   if (!fs.existsSync(path)) {
     return normalizeOptions({});
   }
 
-  const parsed = JSON.parse(fs.readFileSync(path, 'utf8'));
-  return normalizeOptions(parsed);
+  try {
+    const parsed = JSON.parse(fs.readFileSync(path, 'utf8'));
+    return normalizeOptions(parsed);
+  } catch (error) {
+    logger.warn(`Unable to load options from ${path}: ${error.message}`);
+    return normalizeOptions({});
+  }
 }
 
 module.exports = {

@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:24-alpine
 
 ARG BUILD_VERSION
 ARG BUILD_ARCH
@@ -9,7 +9,7 @@ LABEL io.hass.version="$BUILD_VERSION" \
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
 COPY src ./src
 COPY public ./public
