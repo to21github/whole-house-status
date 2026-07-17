@@ -1,10 +1,28 @@
-function indexBy(items = [], key) {
-  return items.reduce((result, item) => {
+function indexBy(items, key) {
+  return (Array.isArray(items) ? items : []).reduce((result, item) => {
     if (item && item[key]) {
       result[item[key]] = item;
     }
     return result;
   }, {});
+}
+
+function createRegistryIndexes(registries = {}) {
+  return {
+    entityById: indexBy(registries.entity, 'entity_id'),
+    deviceById: indexBy(registries.device, 'id'),
+    areaById: indexBy(registries.area, 'area_id')
+  };
+}
+
+function isPreparedIndexes(registries) {
+  return Boolean(
+    registries &&
+    typeof registries === 'object' &&
+    Object.hasOwn(registries, 'entityById') &&
+    Object.hasOwn(registries, 'deviceById') &&
+    Object.hasOwn(registries, 'areaById')
+  );
 }
 
 function areaName(areaId, areaById) {
@@ -22,9 +40,9 @@ function resolveRoom(entity, registries = {}, options) {
     return override;
   }
 
-  const entityById = indexBy(registries.entity, 'entity_id');
-  const deviceById = indexBy(registries.device, 'id');
-  const areaById = indexBy(registries.area, 'area_id');
+  const { entityById, deviceById, areaById } = isPreparedIndexes(registries)
+    ? registries
+    : createRegistryIndexes(registries);
   const registryEntity = entityById[entityId];
 
   const fromEntityArea = areaName(registryEntity && registryEntity.area_id, areaById);
@@ -43,7 +61,13 @@ function resolveRoom(entity, registries = {}, options) {
 
 function buildRooms(devices, options) {
   const discovered = [...new Set(devices.map((device) => device.room).filter(Boolean))];
-  const ordered = options.rooms.order.filter((room) => room === '全部' || discovered.includes(room));
+  const ordered = [];
+
+  for (const room of options.rooms.order) {
+    if ((room === '全部' || discovered.includes(room)) && !ordered.includes(room)) {
+      ordered.push(room);
+    }
+  }
 
   if (!ordered.includes('全部')) {
     ordered.unshift('全部');
@@ -59,6 +83,7 @@ function buildRooms(devices, options) {
 }
 
 module.exports = {
+  createRegistryIndexes,
   resolveRoom,
   buildRooms
 };

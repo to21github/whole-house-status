@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { normalizeOptions } = require('../src/options');
-const { resolveRoom, buildRooms } = require('../src/roomResolver');
+const { createRegistryIndexes, resolveRoom, buildRooms } = require('../src/roomResolver');
 const { StateStore } = require('../src/stateStore');
 
 test('room override wins over Home Assistant registries', () => {
@@ -78,4 +78,108 @@ test('StateStore applies state_changed events', () => {
   });
 
   assert.equal(store.getStateMap()['switch.a'].state, 'on');
+});
+
+test('StateStore deletes only for explicit null new_state events', () => {
+  const store = new StateStore();
+  store.setStates([{ entity_id: 'switch.a', state: 'off', attributes: {} }]);
+
+  store.applyStateChanged({ data: { entity_id: 'switch.a' } });
+  assert.equal(store.getStateMap()['switch.a'].state, 'off');
+
+  store.applyStateChanged({ data: { entity_id: 'switch.a', new_state: null } });
+  assert.equal(store.getStateMap()['switch.a'], undefined);
+});
+
+test('StateStore ignores removal events without a non-empty entity id', () => {
+  const store = new StateStore();
+  store.setStates([{ entity_id: 'switch.a', state: 'off', attributes: {} }]);
+
+  store.applyStateChanged({ data: { entity_id: '', new_state: null } });
+
+  assert.equal(store.getStateMap()['switch.a'].state, 'off');
+});
+
+test('StateStore ignores malformed and mismatched new_state events', () => {
+  const store = new StateStore();
+  store.setStates([{ entity_id: 'switch.a', state: 'off', attributes: {} }]);
+
+  store.applyStateChanged({
+    data: {
+      entity_id: 'switch.a',
+      new_state: { state: 'on', attributes: {} }
+    }
+  });
+  store.applyStateChanged({
+    data: {
+      entity_id: 'switch.a',
+      new_state: { entity_id: 'switch.b', state: 'on', attributes: {} }
+    }
+  });
+
+  assert.deepEqual(store.getStateMap(), {
+    'switch.a': { entity_id: 'switch.a', state: 'off', attributes: {} }
+  });
+});
+
+test('StateStore leaves the last valid snapshot intact for invalid snapshots', () => {
+  const store = new StateStore();
+  const expected = { entity_id: 'switch.a', state: 'off', attributes: {} };
+  store.setStates([expected]);
+
+  for (const snapshot of [null, {}, 'invalid', [{ state: 'on', attributes: {} }]]) {
+    assert.doesNotThrow(() => store.setStates(snapshot));
+    assert.deepEqual(store.getStateMap(), { 'switch.a': expected });
+  }
+});
+
+test('StateStore isolates stored and returned states from caller mutations', () => {
+  const store = new StateStore();
+  const incoming = {
+    entity_id: 'switch.a',
+    state: 'off',
+    attributes: { nested: { mode: 'auto' } }
+  };
+  store.setStates([incoming]);
+
+  incoming.state = 'on';
+  incoming.attributes.nested.mode = 'manual';
+  const stateMap = store.getStateMap();
+  stateMap['switch.a'].state = 'on';
+  stateMap['switch.a'].attributes.nested.mode = 'manual';
+  const states = store.getStates();
+  states[0].attributes.nested.mode = 'away';
+
+  assert.deepEqual(store.getStateMap(), {
+    'switch.a': {
+      entity_id: 'switch.a',
+      state: 'off',
+      attributes: { nested: { mode: 'auto' } }
+    }
+  });
+});
+
+test('createRegistryIndexes produces reusable indexes for resolveRoom', () => {
+  const options = normalizeOptions({});
+  const indexes = createRegistryIndexes({
+    entity: [{ entity_id: 'light.kitchen_ceiling', area_id: 'kitchen' }],
+    device: [],
+    area: [{ area_id: 'kitchen', name: '厨房' }]
+  });
+
+  assert.equal(indexes.entityById['light.kitchen_ceiling'].area_id, 'kitchen');
+  assert.equal(resolveRoom({ entity_id: 'light.kitchen_ceiling' }, indexes, options), '厨房');
+});
+
+test('buildRooms deduplicates configured and discovered rooms', () => {
+  const options = normalizeOptions({
+    rooms: { order: ['全部', '客厅', '客厅'] }
+  });
+  const rooms = buildRooms([
+    { room: '客厅' },
+    { room: '厨房' },
+    { room: '厨房' }
+  ], options);
+
+  assert.deepEqual(rooms, ['全部', '客厅', '厨房']);
 });
