@@ -173,3 +173,184 @@ test('buildViewModel creates registry indexes once per snapshot', () => {
   assert.deepEqual(model.devices.map((device) => device.room), ['厨房', '阳台']);
   assert.deepEqual(reads, { entity: 1, device: 1, area: 1 });
 });
+
+test('buildViewModel ignores malformed state ids and normalizes invalid friendly names', () => {
+  const options = normalizeOptions({});
+  const model = buildViewModel({
+    states: {
+      numeric: { entity_id: 42, state: 'off', attributes: { friendly_name: '数字 ID' } },
+      missingSeparator: entity('switch', 'off', '缺少分隔符'),
+      missingDomain: entity('.missing_domain', 'off', '缺少域'),
+      missingObjectId: entity('switch.', 'off', '缺少对象 ID'),
+      fallbackName: entity('switch.fallback', 'off', '  '),
+      nonStringName: entity('switch.non_string', 'off', 42)
+    },
+    registries: { entity: [], device: [], area: [] },
+    options,
+    alertEngine: new AlertEngine(options),
+    now: Date.parse('2026-07-17T08:00:00Z')
+  });
+
+  assert.deepEqual(model.devices.map((device) => ({
+    entity_id: device.entity_id,
+    name: device.name
+  })), [
+    { entity_id: 'switch.fallback', name: 'switch.fallback' },
+    { entity_id: 'switch.non_string', name: 'switch.non_string' }
+  ]);
+});
+
+test('buildViewModel normalizes null registries before indexing', () => {
+  const options = normalizeOptions({});
+  const model = buildViewModel({
+    states: {
+      'light.visible': entity('light.visible', 'off', '可见灯')
+    },
+    registries: null,
+    options,
+    alertEngine: new AlertEngine(options),
+    now: Date.parse('2026-07-17T08:00:00Z')
+  });
+
+  assert.equal(model.devices[0].room, '未分组');
+});
+
+test('buildViewModel normalizes supplied times once for evaluation and output', () => {
+  const options = normalizeOptions({});
+
+  for (const suppliedNow of [NaN, Infinity, null, 'not a date', '2026-07-17T08:00:00Z']) {
+    const evaluationTimes = [];
+    const alertEngine = {
+      prune() {},
+      evaluate(_entity, _states, now) {
+        evaluationTimes.push(now);
+        return { status: 'idle', label: '在线', color: 'idle', reason: 'idle' };
+      }
+    };
+
+    const model = buildViewModel({
+      states: {
+        'switch.visible': entity('switch.visible', 'off', '可见开关')
+      },
+      registries: { entity: [], device: [], area: [] },
+      options,
+      alertEngine,
+      now: suppliedNow
+    });
+    const updatedAt = Date.parse(model.updated_at);
+
+    assert.equal(Number.isFinite(updatedAt), true);
+    assert.deepEqual(evaluationTimes, [updatedAt]);
+  }
+});
+
+test('buildViewModel returns safe error devices when the alert engine is unavailable or throws', () => {
+  const options = normalizeOptions({});
+  const cases = [
+    { alertEngine: null, reason: 'alert_engine_unavailable' },
+    { alertEngine: {}, reason: 'alert_engine_unavailable' },
+    {
+      alertEngine: {
+        prune() {
+          throw new Error('prune failed');
+        },
+        evaluate() {
+          return { status: 'idle', label: '在线', color: 'idle', reason: 'idle' };
+        }
+      },
+      reason: 'alert_engine_error'
+    },
+    {
+      alertEngine: {
+        prune() {},
+        evaluate() {
+          throw new Error('evaluate failed');
+        }
+      },
+      reason: 'alert_engine_error'
+    }
+  ];
+
+  for (const { alertEngine, reason } of cases) {
+    const model = buildViewModel({
+      states: {
+        'switch.visible': entity('switch.visible', 'off', '可见开关')
+      },
+      registries: { entity: [], device: [], area: [] },
+      options,
+      alertEngine,
+      now: Date.parse('2026-07-17T08:00:00Z')
+    });
+
+    assert.deepEqual(model.alerts[0], {
+      entity_id: 'switch.visible',
+      name: '可见开关',
+      room: '未分组',
+      raw_state: 'off',
+      status: 'error',
+      status_label: '故障',
+      status_color: 'red',
+      reason,
+      show_entity_id: true
+    });
+    assert.deepEqual(model.devices, []);
+  }
+});
+
+test('buildViewModel preserves all status colors and includes idle devices', () => {
+  const options = normalizeOptions({
+    rooms: {
+      overrides: {
+        'switch.offline': '客厅',
+        'switch.timeout': '客厅',
+        'switch.active': '客厅',
+        'light.idle': '客厅'
+      }
+    },
+    alerts: {
+      on_duration_rules: [
+        { entity_id: 'switch.timeout', duration_minutes: 1 }
+      ]
+    }
+  });
+  const alertEngine = new AlertEngine(options);
+  const now = Date.parse('2026-07-17T08:00:00Z');
+  const states = {
+    'switch.offline': entity('switch.offline', 'unavailable', '离线'),
+    'switch.timeout': entity('switch.timeout', 'on', '超时'),
+    'switch.active': entity('switch.active', 'on', '开启'),
+    'light.idle': entity('light.idle', 'off', '空闲')
+  };
+
+  alertEngine.evaluate(states['switch.timeout'], states, now);
+  const model = buildViewModel({
+    states,
+    registries: { entity: [], device: [], area: [] },
+    options,
+    alertEngine,
+    now: now + 2 * 60 * 1000,
+    selectedRoom: '客厅'
+  });
+
+  assert.deepEqual(new Set([
+    ...model.alerts.map((device) => device.status_color),
+    ...model.devices.map((device) => device.status_color)
+  ]), new Set(['red', 'orange', 'green', 'idle']));
+  assert.equal(model.devices.some((device) => device.entity_id === 'light.idle'), true);
+});
+
+test('buildViewModel sorts devices with equal names by entity id', () => {
+  const options = normalizeOptions({});
+  const model = buildViewModel({
+    states: {
+      'switch.z': entity('switch.z', 'off', '同名设备'),
+      'switch.a': entity('switch.a', 'off', '同名设备')
+    },
+    registries: { entity: [], device: [], area: [] },
+    options,
+    alertEngine: new AlertEngine(options),
+    now: Date.parse('2026-07-17T08:00:00Z')
+  });
+
+  assert.deepEqual(model.devices.map((device) => device.entity_id), ['switch.a', 'switch.z']);
+});
