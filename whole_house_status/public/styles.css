@@ -411,7 +411,7 @@ button {
   }
 
   .rooms button {
-    flex: 1 1 calc((100% - 20px) / 3);
+    flex: 0 0 96px;
     min-width: 96px;
     font-size: 20px;
   }
