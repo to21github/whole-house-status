@@ -430,21 +430,20 @@ button {
     font-size: 32px;
   }
 
-  .rooms {
-    display: grid;
-    flex: 0 0 auto;
-    grid-template-columns: repeat(auto-fit, minmax(96px, 96px));
-    gap: 10px;
-  }
-
   .filter-bar {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: stretch;
-    flex-direction: column;
+    gap: 10px;
     margin-top: 24px;
   }
 
+  .rooms {
+    display: contents;
+  }
+
   .display-menu {
-    align-self: flex-start;
+    align-self: start;
     order: 2;
   }
 
@@ -455,8 +454,8 @@ button {
   }
 
   .rooms button {
-    flex: 0 0 96px;
-    min-width: 96px;
+    width: 100%;
+    min-width: 0;
     font-size: 20px;
   }
 

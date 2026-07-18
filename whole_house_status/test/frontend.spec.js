@@ -508,7 +508,7 @@ test('keeps mobile room controls fixed width when the final row is incomplete', 
   const model = {
     title: '全屋设备状态',
     selected_room: '全部',
-    rooms: ['全部', '客厅', '门口', '主卧', '卫生间', '未分组'],
+    rooms: ['全部', '门口', '客厅', '主卧', '次卧', '厨房', '儿童房', '餐桌', '卫生间', '未分组'],
     stats: { online: 0, on: 0, warning: 0, error: 0 },
     alerts: [],
     devices: [],
@@ -517,18 +517,22 @@ test('keeps mobile room controls fixed width when the final row is incomplete', 
   await mockWebSocket(page, [model]);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${baseUrl}/`);
-  await expect(page.locator('#rooms button')).toHaveCount(6);
-
-  const widths = await page.locator('#rooms button').evaluateAll((buttons) => (
-    buttons.map((button) => getComputedStyle(button).width)
-  ));
-
-  expect(widths).toEqual(['96px', '96px', '96px', '96px', '96px', '96px']);
-  await expect(page.locator('#rooms')).toHaveCSS('display', 'grid');
-  const roomColumns = await page.locator('#rooms').evaluate((element) => (
+  const filterBar = page.locator('.filter-bar');
+  const stats = page.locator('.stats');
+  await expect(page.locator('#rooms button')).toHaveCount(10);
+  await expect(filterBar).toHaveCSS('display', 'grid');
+  await expect(page.locator('#rooms')).toHaveCSS('display', 'contents');
+  const filterColumns = await filterBar.evaluate((element) => (
     getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).filter(Boolean).length
   ));
-  expect(roomColumns).toBe(3);
+  expect(filterColumns).toBe(3);
+
+  const [filterBox, statsBox] = await Promise.all([
+    filterBar.boundingBox(),
+    stats.boundingBox()
+  ]);
+  expect(Math.abs(filterBox.x - statsBox.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs((filterBox.x + filterBox.width) - (statsBox.x + statsBox.width))).toBeLessThanOrEqual(1);
 
   const roomNames = await page.locator('#rooms button').allTextContents();
   expect(roomNames.at(-1)).toBe('未分组');
@@ -538,10 +542,14 @@ test('keeps mobile room controls fixed width when the final row is incomplete', 
       return { x: box.x, y: box.y, width: box.width, height: box.height };
     })
   ));
+  expect(roomBoxes.every((box) => Math.abs(box.width - roomBoxes[0].width) <= 1)).toBe(true);
   expect(Math.abs(roomBoxes[0].x - roomBoxes[3].x)).toBeLessThanOrEqual(1);
-  const displayBox = await page.locator('.display-menu summary').boundingBox();
+  expect(Math.abs(roomBoxes[0].x - roomBoxes[6].x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(roomBoxes[0].x - roomBoxes[9].x)).toBeLessThanOrEqual(1);
   const lastRoomBox = roomBoxes.at(-1);
-  expect(displayBox.y).toBeGreaterThanOrEqual(lastRoomBox.y + lastRoomBox.height);
+  const displayBox = await page.locator('.display-menu summary').boundingBox();
+  expect(Math.abs(displayBox.y - lastRoomBox.y)).toBeLessThanOrEqual(1);
+  expect(displayBox.x).toBeGreaterThan(lastRoomBox.x + lastRoomBox.width);
 });
 
 test('ignores nested invalid devices before a later valid model', async ({ page }) => {
