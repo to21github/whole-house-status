@@ -70,8 +70,13 @@ button {
 }
 
 .stat {
-  min-height: 154px;
-  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 80px;
+  padding: 16px 24px;
+  border-radius: 8px;
 }
 
 .stat p,
@@ -82,14 +87,16 @@ button {
 }
 
 .stat p {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.4;
 }
 
 .stat strong {
-  display: block;
-  margin-top: 16px;
+  flex: 0 0 auto;
+  margin: 0;
   color: var(--text);
   font-size: 42px;
   font-weight: 700;
@@ -246,7 +253,7 @@ button {
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 274px);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   justify-content: start;
   gap: 16px;
 }
@@ -319,6 +326,12 @@ button {
   color: var(--red) !important;
 }
 
+@media (min-width: 921px) and (max-width: 1279px) {
+  .cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 920px) {
   .page {
     padding: 20px 18px 48px;
@@ -335,12 +348,17 @@ button {
   }
 
   .stat {
-    min-height: 132px;
-    padding: 20px;
+    gap: 8px;
+    min-height: 80px;
+    padding: 12px;
+  }
+
+  .stat p {
+    font-size: 14px;
   }
 
   .stat strong {
-    font-size: 36px;
+    font-size: 32px;
   }
 
   .rooms {

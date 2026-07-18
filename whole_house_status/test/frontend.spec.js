@@ -124,10 +124,17 @@ test('renders the dashboard on desktop', async ({ page }) => {
   await expect(page.locator('#alerts .device-card')).toHaveCount(1);
   await expect(page.locator('#devices .device-card').first()).toBeVisible();
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(16, 16, 16)');
-  expect(Math.round((await page.locator('#devices .device-card').first().boundingBox()).width)).toBe(274);
   expect(await page.locator('.stats').evaluate((element) => (
     getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).filter(Boolean).length
   ))).toBe(4);
+  await expect(page.locator('.stat').first()).toHaveCSS('display', 'flex');
+  await expect(page.locator('.stat').first()).toHaveCSS('justify-content', 'space-between');
+  const statLabel = await page.locator('.stat').first().locator('p').boundingBox();
+  const statValue = await page.locator('.stat').first().locator('strong').boundingBox();
+  expect(statLabel.x + statLabel.width).toBeLessThanOrEqual(statValue.x);
+  expect(await page.locator('#devices').evaluate((element) => (
+    getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).filter(Boolean).length
+  ))).toBe(5);
 });
 
 test('ignores invalid messages before the first selected room model', async ({ page }) => {
