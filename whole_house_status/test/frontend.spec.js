@@ -153,11 +153,18 @@ test('renders the dashboard on desktop', async ({ page }) => {
   await expect(cardMeta).toHaveAttribute('title', await cardMeta.textContent());
   await displayTrigger.click();
   const ignoredOption = page.locator('.show-ignored-option');
+  const checkboxBox = ignoredOption.locator('.checkbox-box');
+  await expect(checkboxBox).toHaveCSS('width', '18px');
+  await expect(checkboxBox).toHaveCSS('height', '18px');
+  await expect(checkboxBox).toHaveCSS('border-width', '1px');
+  await expect(checkboxBox).toHaveCSS('border-color', 'rgb(189, 189, 189)');
+  await expect(checkboxBox).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(checkboxBox).toHaveCSS('border-radius', '2px');
   const optionMetrics = await ignoredOption.evaluate((element) => {
-    const checkbox = element.querySelector('input');
-    const label = element.querySelector('span');
+    const box = element.querySelector('.checkbox-box');
+    const label = element.querySelector('span:last-child');
     const styles = getComputedStyle(element);
-    const requiredWidth = checkbox.getBoundingClientRect().width
+    const requiredWidth = box.getBoundingClientRect().width
       + Number.parseFloat(styles.columnGap)
       + label.getBoundingClientRect().width
       + Number.parseFloat(styles.paddingLeft)
@@ -175,6 +182,13 @@ test('renders the dashboard on desktop', async ({ page }) => {
   await expect(ignoredOption).toHaveCSS('padding-left', '12px');
   await expect(ignoredOption).toHaveCSS('column-gap', '10px');
   await expect(ignoredOption).toHaveCSS('font-size', '18px');
+  await page.getByText('显示已忽略的实体', { exact: true }).click();
+  await expect(page.getByLabel('显示已忽略的实体')).toBeChecked();
+  await expect(checkboxBox).toHaveCSS('background-color', 'rgb(213, 213, 213)');
+  const checkedContent = await checkboxBox.evaluate((element) => (
+    getComputedStyle(element, '::after').content
+  ));
+  expect(checkedContent).toBe('""');
   await expect(page.locator('#alerts .device-card')).toHaveCount(1);
   await expect(page.locator('#devices .device-card').first()).toBeVisible();
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(16, 16, 16)');
