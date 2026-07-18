@@ -35,9 +35,10 @@ docker build -t whole-house-status-addon:local .
 2. From the top-right menu, select **Repositories**.
 3. Add `https://github.com/to21github/whole-house-status` as an **Add-on repository**.
 4. Install **Whole House Status**.
-5. Configure the add-on.
-6. Restart the add-on.
-7. Open `全屋设备状态` from the sidebar.
+5. Start the add-on.
+6. Configure the add-on.
+7. Restart the add-on.
+8. Open `全屋设备状态` from the sidebar.
 
 ## Options
 

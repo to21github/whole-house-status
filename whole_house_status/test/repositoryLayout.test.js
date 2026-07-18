@@ -33,6 +33,12 @@ test('Home Assistant repository layout exposes the Whole House Status add-on', (
   assert.match(repositoryManifest, /^url: https:\/\/github\.com\/to21github\/whole-house-status$/m);
   assert.match(repositoryManifest, /^maintainer: to21github$/m);
 
+  const readme = fs.readFileSync(path.join(repositoryRoot, 'README.md'), 'utf8');
+  assert.match(
+    readme,
+    /Install \*\*Whole House Status\*\*\.\n5\. Start the add-on\.\n6\. Configure the add-on\.\n7\. Restart the add-on\./,
+  );
+
   for (const relativePath of [
     'whole_house_status/config.yaml',
     'whole_house_status/Dockerfile',
