@@ -26,10 +26,19 @@ function includeEntity(entity, options) {
   return options.entities.include_domains.includes(domain);
 }
 
-function isIgnoredEntity(entity, options, registryIndexes) {
+function getIgnoreState(entity, options, registryIndexes, dashboardIgnoredEntityIds = new Set()) {
+  const dashboard_ignored = dashboardIgnoredEntityIds.has(entity.entity_id);
   const registryEntity = registryIndexes.entityById[entity.entity_id];
-  return Boolean(registryEntity && registryEntity.hidden_by)
+  const externallyIgnored = Boolean(registryEntity && registryEntity.hidden_by)
     || options.entities.exclude_entities.includes(entity.entity_id);
+  return {
+    ignored: dashboard_ignored || externallyIgnored,
+    dashboard_ignored
+  };
+}
+
+function isIgnoredEntity(entity, options, registryIndexes, dashboardIgnoredEntityIds) {
+  return getIgnoreState(entity, options, registryIndexes, dashboardIgnoredEntityIds).ignored;
 }
 
 function sortByStatusAndName(a, b) {
@@ -46,7 +55,7 @@ function sortByStatusAndName(a, b) {
   return nameComparison || a.entity_id.localeCompare(b.entity_id, 'zh-CN');
 }
 
-function createDevice(entity, room, statusResult, options, ignored) {
+function createDevice(entity, room, statusResult, options, ignoreState) {
   return {
     entity_id: entity.entity_id,
     name: friendlyName(entity),
@@ -56,7 +65,8 @@ function createDevice(entity, room, statusResult, options, ignored) {
     status_label: statusResult.label,
     status_color: statusResult.color,
     reason: statusResult.reason,
-    ignored,
+    ignored: ignoreState.ignored,
+    dashboard_ignored: ignoreState.dashboard_ignored,
     show_entity_id: options.display.show_entity_id
   };
 }
@@ -130,18 +140,23 @@ function buildViewModel({
   now,
   selectedRoom = options.display.default_room,
   haConnected = true,
-  configError = null
+  configError = null,
+  dashboardIgnoredEntityIds = new Set()
 }) {
   const stateMap = states || {};
   const effectiveNow = normalizeTimestamp(now);
   const preparedAlertEngine = prepareAlertEngine(alertEngine, Object.keys(stateMap));
   const registryIndexes = createRegistryIndexes(normalizeRegistries(registries));
+  const dashboardIgnored = dashboardIgnoredEntityIds instanceof Set
+    ? dashboardIgnoredEntityIds
+    : new Set();
   const allDisplayDevices = Object.values(stateMap)
     .filter((entity) => includeEntity(entity, options))
     .map((entity) => {
       const room = resolveRoom(entity, registryIndexes, options);
       const statusResult = evaluateSafely(preparedAlertEngine, entity, stateMap, effectiveNow);
-      return createDevice(entity, room, statusResult, options, isIgnoredEntity(entity, options, registryIndexes));
+      const ignoreState = getIgnoreState(entity, options, registryIndexes, dashboardIgnored);
+      return createDevice(entity, room, statusResult, options, ignoreState);
     })
     .sort(sortByStatusAndName);
 
@@ -192,6 +207,7 @@ function buildViewModel({
 module.exports = {
   buildViewModel,
   domainOf,
+  getIgnoreState,
   includeEntity,
   isIgnoredEntity
 };

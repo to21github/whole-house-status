@@ -142,6 +142,39 @@ test('buildViewModel treats Home Assistant hidden entities as ignored', () => {
   });
 });
 
+test('buildViewModel marks dashboard ignored entities as restorable without changing external exclusions', () => {
+  const options = normalizeOptions({
+    entities: {
+      include_domains: ['switch'],
+      exclude_entities: ['switch.configured']
+    }
+  });
+  const model = buildViewModel({
+    states: {
+      'switch.dashboard': entity('switch.dashboard', 'off', '面板忽略'),
+      'switch.configured': entity('switch.configured', 'off', '配置忽略'),
+      'switch.visible': entity('switch.visible', 'off', '可见开关')
+    },
+    registries: { entity: [], device: [], area: [] },
+    dashboardIgnoredEntityIds: new Set(['switch.dashboard']),
+    options,
+    alertEngine: new AlertEngine(options),
+    now: Date.now(),
+    selectedRoom: '全部',
+    haConnected: true
+  });
+
+  assert.deepEqual(Object.fromEntries(model.devices.map((device) => [device.entity_id, {
+    ignored: device.ignored,
+    dashboard_ignored: device.dashboard_ignored
+  }])), {
+    'switch.configured': { ignored: true, dashboard_ignored: false },
+    'switch.dashboard': { ignored: true, dashboard_ignored: true },
+    'switch.visible': { ignored: false, dashboard_ignored: false }
+  });
+  assert.equal(model.stats.online, 1);
+});
+
 test('buildViewModel includes configured room order', () => {
   const options = normalizeOptions({
     rooms: {
@@ -381,6 +414,7 @@ test('buildViewModel returns safe error devices when the alert engine is unavail
       status_color: 'red',
       reason,
       ignored: false,
+      dashboard_ignored: false,
       show_entity_id: true
     });
     assert.deepEqual(model.devices, []);
