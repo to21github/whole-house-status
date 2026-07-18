@@ -78,6 +78,8 @@ async function mockWebSocket(page, viewModels) {
       constructor() {
         super();
         this.readyState = MockWebSocket.OPEN;
+        this.sent = [];
+        window.__wholeHouseStatusMockSockets.push(this);
         models.forEach((model, index) => {
           window.setTimeout(() => {
             this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify(model) }));
@@ -89,10 +91,15 @@ async function mockWebSocket(page, viewModels) {
         this.readyState = MockWebSocket.CLOSED;
         this.dispatchEvent(new Event('close'));
       }
+
+      send(data) {
+        this.sent.push(JSON.parse(data));
+      }
     }
     MockWebSocket.CONNECTING = 0;
     MockWebSocket.OPEN = 1;
     MockWebSocket.CLOSED = 3;
+    window.__wholeHouseStatusMockSockets = [];
     window.WebSocket = MockWebSocket;
   }, viewModels);
 }
@@ -305,16 +312,109 @@ test('shows ignored entities only when the display option is enabled', async ({ 
   await expect(page.locator('#alerts')).not.toContainText('已忽略离线开关');
 
   await page.getByText('显示', { exact: true }).click();
-  const showIgnored = page.getByLabel('显示已忽略的');
+  const showIgnored = page.getByLabel('显示已忽略的实体');
   await expect(showIgnored).not.toBeChecked();
-  await page.getByText('显示已忽略的', { exact: true }).click();
+  await page.getByText('显示已忽略的实体', { exact: true }).click();
   await expect(showIgnored).toBeChecked();
   await expect(page.locator('#alerts')).toContainText('已忽略离线开关');
   await expect(page.locator('#alerts')).toContainText('已忽略');
 
-  await page.getByText('显示已忽略的', { exact: true }).click();
+  await page.getByText('显示已忽略的实体', { exact: true }).click();
   await expect(showIgnored).not.toBeChecked();
   await expect(page.locator('#alerts')).not.toContainText('已忽略离线开关');
+});
+
+test('immediately hides and restores dashboard ignored cards without a Home Assistant command', async ({ page }) => {
+  const visibleModel = {
+    title: '全屋设备状态',
+    selected_room: '全部',
+    rooms: ['全部', '客厅'],
+    stats: { online: 1, on: 0, warning: 0, error: 0 },
+    alerts: [],
+    devices: [{
+      entity_id: 'switch.visible',
+      name: '可见开关',
+      room: '客厅',
+      status_label: '在线',
+      status_color: '',
+      ignored: false,
+      dashboard_ignored: false,
+      show_entity_id: false
+    }],
+    connection: { ha_connected: true, config_error: null }
+  };
+  const ignoredModel = {
+    ...visibleModel,
+    stats: { online: 0, on: 0, warning: 0, error: 0 },
+    devices: [{ ...visibleModel.devices[0], ignored: true, dashboard_ignored: true }]
+  };
+  await page.addInitScript(() => localStorage.removeItem('whole-house-status-show-ignored'));
+  await mockWebSocket(page, [visibleModel]);
+  await page.goto(`${baseUrl}/`);
+
+  const visibleCard = page.locator('#devices .device-card', { hasText: '可见开关' });
+  const ignoreButton = visibleCard.getByRole('button', { name: '忽略' });
+  await expect(ignoreButton).toBeVisible();
+  await expect(ignoreButton).toHaveCSS('position', 'absolute');
+  await ignoreButton.click();
+  await expect(page.locator('#devices')).not.toContainText('可见开关');
+  await expect.poll(() => page.evaluate(() => window.__wholeHouseStatusMockSockets[0].sent)).toEqual([
+    { type: 'set_dashboard_entity_ignored', entity_id: 'switch.visible', ignored: true }
+  ]);
+
+  await page.evaluate((model) => {
+    window.__wholeHouseStatusMockSockets[0].dispatchEvent(
+      new MessageEvent('message', { data: JSON.stringify(model) })
+    );
+  }, ignoredModel);
+  await page.getByText('显示', { exact: true }).click();
+  await page.getByLabel('显示已忽略的实体').check();
+  const ignoredCard = page.locator('#devices .device-card', { hasText: '可见开关' });
+  const restoreButton = ignoredCard.getByRole('button', { name: '不再忽略' });
+  await expect(restoreButton).toBeVisible();
+  await restoreButton.click();
+
+  await expect.poll(() => page.evaluate(() => window.__wholeHouseStatusMockSockets[0].sent)).toEqual([
+    { type: 'set_dashboard_entity_ignored', entity_id: 'switch.visible', ignored: true },
+    { type: 'set_dashboard_entity_ignored', entity_id: 'switch.visible', ignored: false }
+  ]);
+  await page.evaluate((model) => {
+    window.__wholeHouseStatusMockSockets[0].dispatchEvent(
+      new MessageEvent('message', { data: JSON.stringify(model) })
+    );
+  }, visibleModel);
+  await page.getByLabel('显示已忽略的实体').uncheck();
+  await expect(page.locator('#devices')).toContainText('可见开关');
+});
+
+test('does not offer dashboard restore controls for externally ignored cards', async ({ page }) => {
+  const model = {
+    title: '全屋设备状态',
+    selected_room: '全部',
+    rooms: ['全部'],
+    stats: { online: 0, on: 0, warning: 0, error: 0 },
+    alerts: [],
+    devices: [{
+      entity_id: 'switch.configured',
+      name: '配置忽略开关',
+      room: '客厅',
+      status_label: '在线',
+      status_color: '',
+      ignored: true,
+      dashboard_ignored: false,
+      show_entity_id: false
+    }],
+    connection: { ha_connected: true, config_error: null }
+  };
+  await page.addInitScript(() => localStorage.removeItem('whole-house-status-show-ignored'));
+  await mockWebSocket(page, [model]);
+  await page.goto(`${baseUrl}/`);
+
+  await page.getByText('显示', { exact: true }).click();
+  await page.getByLabel('显示已忽略的实体').check();
+  const card = page.locator('#devices .device-card', { hasText: '配置忽略开关' });
+  await expect(card).toBeVisible();
+  await expect(card.getByRole('button')).toHaveCount(0);
 });
 
 test('keeps the ignored-entities display menu inside the mobile viewport', async ({ page }) => {

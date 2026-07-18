@@ -23,6 +23,8 @@
     model: null,
     selectedRoom: '全部',
     showIgnored: loadShowIgnored(),
+    pendingDashboardIgnoreChanges: new Map(),
+    entityActionError: null,
     reconnectTimer: null
   };
   let socket = null;
@@ -64,6 +66,7 @@
       && typeof device.status_label === 'string'
       && typeof device.status_color === 'string'
       && (device.ignored === undefined || typeof device.ignored === 'boolean')
+      && (device.dashboard_ignored === undefined || typeof device.dashboard_ignored === 'boolean')
       && typeof device.show_entity_id === 'boolean'
     );
     return isObject(model)
@@ -93,21 +96,43 @@
     return element;
   }
 
-  function createDeviceCard(device, isAlert) {
+  function effectiveIgnored(device) {
+    return state.pendingDashboardIgnoreChanges.has(device.entity_id)
+      ? state.pendingDashboardIgnoreChanges.get(device.entity_id)
+      : device.ignored;
+  }
+
+  function canToggleDashboardIgnore(device) {
+    return !device.ignored || device.dashboard_ignored === true;
+  }
+
+  function createDeviceCard(device, isAlert, onSetDashboardIgnored) {
+    const ignored = effectiveIgnored(device);
     const card = document.createElement('article');
     card.className = [
       'device-card',
       isAlert ? 'alert-card' : '',
-      device.ignored ? 'ignored-card' : ''
+      ignored ? 'ignored-card' : ''
     ].filter(Boolean).join(' ');
 
     const name = createTextElement('h2', 'device-name', device.name);
     const detail = device.show_entity_id ? device.entity_id : device.room;
     const meta = createTextElement('p', 'device-meta', detail);
     const status = createTextElement('p', `device-status ${statusClass(device.status_color)}`, device.status_label);
+    if (canToggleDashboardIgnore(device)) {
+      const action = document.createElement('button');
+      const nextIgnored = !ignored;
+      action.type = 'button';
+      action.className = 'entity-ignore-action';
+      action.textContent = nextIgnored ? '忽略' : '不再忽略';
+      action.title = nextIgnored ? `忽略 ${device.name}` : `不再忽略 ${device.name}`;
+      action.disabled = state.pendingDashboardIgnoreChanges.has(device.entity_id);
+      action.addEventListener('click', () => onSetDashboardIgnored(device, nextIgnored));
+      card.append(action);
+    }
 
     card.append(name, meta);
-    if (device.ignored) {
+    if (ignored) {
       card.append(createTextElement('p', 'device-ignored', '已忽略'));
     }
     card.append(status);
@@ -140,14 +165,17 @@
     if (connection.ha_connected === false) {
       notices.push('HA WebSocket 未连接，正在使用最后一次状态');
     }
+    if (state.entityActionError) {
+      notices.push(`实体操作失败：${state.entityActionError}`);
+    }
     elements.connection.hidden = notices.length === 0;
     elements.connection.textContent = notices.join('\n');
   }
 
-  function renderCards(container, devices, isAlert) {
+  function renderCards(container, devices, isAlert, onSetDashboardIgnored) {
     const fragment = document.createDocumentFragment();
     for (const device of devices) {
-      fragment.append(createDeviceCard(device, isAlert));
+      fragment.append(createDeviceCard(device, isAlert, onSetDashboardIgnored));
     }
     container.replaceChildren(fragment);
   }
@@ -164,7 +192,7 @@
     const devices = Array.isArray(model.devices) ? model.devices : [];
     const connection = model.connection || {};
     const isVisibleInSelectedRoom = (device) => (
-      (state.showIgnored || !device.ignored)
+      (state.showIgnored || !effectiveIgnored(device))
       && (state.selectedRoom === '全部' || device.room === state.selectedRoom)
     );
     const visibleAlerts = alerts.filter(isVisibleInSelectedRoom);
@@ -179,13 +207,34 @@
     elements.showIgnored.checked = state.showIgnored;
     renderRooms(rooms);
     renderConnection(connection);
-    renderCards(elements.alerts, visibleAlerts, true);
+    const setDashboardEntityIgnored = (device, ignored) => {
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        state.entityActionError = 'HA WebSocket 未连接';
+        render();
+        return;
+      }
+      state.entityActionError = null;
+      state.pendingDashboardIgnoreChanges.set(device.entity_id, ignored);
+      render();
+      try {
+        socket.send(JSON.stringify({
+          type: 'set_dashboard_entity_ignored',
+          entity_id: device.entity_id,
+          ignored
+        }));
+      } catch {
+        state.pendingDashboardIgnoreChanges.delete(device.entity_id);
+        state.entityActionError = '无法发送请求';
+        render();
+      }
+    };
+    renderCards(elements.alerts, visibleAlerts, true, setDashboardEntityIgnored);
 
     if (visibleDevices.length === 0) {
       elements.devices.replaceChildren(createTextElement('p', 'empty-state', '当前房间没有可显示设备'));
       return;
     }
-    renderCards(elements.devices, visibleDevices, false);
+    renderCards(elements.devices, visibleDevices, false, setDashboardEntityIgnored);
   }
 
   elements.showIgnored.addEventListener('change', () => {
@@ -225,6 +274,12 @@
       } catch {
         return;
       }
+      if (model && model.type === 'dashboard_entity_ignored_result') {
+        state.pendingDashboardIgnoreChanges.delete(model.entity_id);
+        state.entityActionError = typeof model.error === 'string' ? model.error : null;
+        render();
+        return;
+      }
       if (!isViewModel(model)) {
         return;
       }
@@ -235,6 +290,12 @@
         : '全部';
       const isFirstModel = state.model === null;
       state.model = model;
+      for (const [entityId, ignored] of state.pendingDashboardIgnoreChanges) {
+        const device = [...model.alerts, ...model.devices].find((candidate) => candidate.entity_id === entityId);
+        if (device && device.dashboard_ignored === ignored) {
+          state.pendingDashboardIgnoreChanges.delete(entityId);
+        }
+      }
       if (isFirstModel || !rooms.includes(state.selectedRoom)) {
         state.selectedRoom = selectedRoom;
       }

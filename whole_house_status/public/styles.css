@@ -259,12 +259,40 @@ button {
 }
 
 .device-card {
+  position: relative;
   min-height: 146px;
   padding: 20px;
 }
 
+.entity-ignore-action {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  min-height: 28px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.entity-ignore-action:hover,
+.entity-ignore-action:focus-visible {
+  background: #252525;
+  color: var(--text);
+}
+
+.entity-ignore-action:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 .device-name {
   margin: 0;
+  padding-right: 72px;
   overflow: hidden;
   color: var(--text);
   font-size: 20px;
