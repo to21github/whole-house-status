@@ -16,6 +16,7 @@ const PORT = resolvePort(process.env.PORT);
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const INGRESS_PROXY_ADDRESS = '172.30.32.2';
 const SHUTDOWN_TIMEOUT_MS = 5_000;
+const REFRESH_INTERVAL_MS = 1_000;
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -41,6 +42,9 @@ function safeFilePath(urlPath, publicDir = PUBLIC_DIR) {
   try {
     cleanPath = decodeURIComponent((urlPath || '/').split('?')[0]);
   } catch {
+    return null;
+  }
+  if (cleanPath.includes('\0')) {
     return null;
   }
 
@@ -92,7 +96,8 @@ function createServer({
   optionsPath,
   publicDir = PUBLIC_DIR,
   logger = console,
-  haClientFactory = () => new HomeAssistantClient()
+  haClientFactory = () => new HomeAssistantClient(),
+  refreshIntervalMs = REFRESH_INTERVAL_MS
 } = {}) {
   let configError = null;
   const optionsLogger = {
@@ -162,6 +167,28 @@ function createServer({
     client.on('close', () => clients.delete(client));
   });
 
+  let refreshTimer = setInterval(() => {
+    if (clients.size > 0) {
+      broadcast();
+    }
+  }, refreshIntervalMs);
+  refreshTimer.unref();
+
+  function stopRefresh() {
+    if (!refreshTimer) {
+      return;
+    }
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+
+  const nativeServerClose = server.close.bind(server);
+  server.close = (...args) => {
+    stopRefresh();
+    return nativeServerClose(...args);
+  };
+  server.once('close', stopRefresh);
+
   server.on('upgrade', (req, socket, head) => {
     if (!isIngressRequestAllowed(req.socket.remoteAddress, { token, useMockData })) {
       rejectUpgrade(socket);
@@ -197,7 +224,7 @@ function createServer({
     haClient.connect();
   }
 
-  return { server, browserWss, snapshot, broadcast, haClient };
+  return { server, browserWss, snapshot, broadcast, haClient, stopRefresh };
 }
 
 function closeWithCallback(close) {
@@ -210,7 +237,10 @@ function closeWithCallback(close) {
   });
 }
 
-async function closeApplication({ server, browserWss, haClient }) {
+async function closeApplication({ server, browserWss, haClient, stopRefresh }) {
+  if (stopRefresh) {
+    stopRefresh();
+  }
   const serverClosed = closeWithCallback((done) => server.close(done));
 
   for (const client of browserWss.clients) {

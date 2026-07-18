@@ -22,6 +22,7 @@ class HomeAssistantClient extends EventEmitter {
     this.ws = null;
     this.closedByUser = false;
     this.reconnectTimer = null;
+    this.initialStateSync = null;
   }
 
   connect() {
@@ -68,6 +69,9 @@ class HomeAssistantClient extends EventEmitter {
 
     this.ws = null;
     this.connected = false;
+    if (this.initialStateSync && this.initialStateSync.ws === ws) {
+      this.initialStateSync = null;
+    }
     this.emit('connection', false);
     for (const [, pending] of this.pending) {
       pending.reject(new Error('Home Assistant WebSocket closed'));
@@ -108,9 +112,12 @@ class HomeAssistantClient extends EventEmitter {
       this.retry = 0;
       this.emit('connection', true);
       try {
-        await this.loadInitialData();
+        await this.loadInitialData(ws);
       } catch (error) {
         this.emit('error', error);
+        if (this.ws === ws) {
+          ws.close();
+        }
       }
       return;
     }
@@ -122,6 +129,10 @@ class HomeAssistantClient extends EventEmitter {
     }
 
     if (message.type === 'event' && message.event && message.event.event_type === 'state_changed') {
+      if (this.initialStateSync && this.initialStateSync.ws === ws) {
+        this.initialStateSync.events.push(message.event);
+        return;
+      }
       this.emit('state_changed', message.event);
       return;
     }
@@ -157,7 +168,11 @@ class HomeAssistantClient extends EventEmitter {
     });
   }
 
-  async loadInitialData() {
+  async loadInitialData(ws = this.ws) {
+    const sync = { ws, events: [] };
+    this.initialStateSync = sync;
+
+    await this.send('subscribe_events', { event_type: 'state_changed' });
     const [states, entityRegistry, deviceRegistry, areaRegistry] = await Promise.all([
       this.send('get_states'),
       this.send('config/entity_registry/list'),
@@ -165,14 +180,20 @@ class HomeAssistantClient extends EventEmitter {
       this.send('config/area_registry/list')
     ]);
 
+    if (this.ws !== ws || this.initialStateSync !== sync) {
+      return;
+    }
+
     this.emit('registries', {
       entity: entityRegistry || [],
       device: deviceRegistry || [],
       area: areaRegistry || []
     });
     this.emit('states', states || []);
-
-    await this.send('subscribe_events', { event_type: 'state_changed' });
+    this.initialStateSync = null;
+    for (const event of sync.events) {
+      this.emit('state_changed', event);
+    }
   }
 }
 

@@ -227,6 +227,211 @@ test('production server rejects non-proxy HTTP and WebSocket traffic', async (t)
   assert.equal(upgradeStatus, 403);
 });
 
+test('mock server rejects percent-encoded NUL paths without losing service', async (t) => {
+  const child = spawn(process.execPath, ['src/server.js'], {
+    cwd: path.resolve(__dirname, '..'),
+    env: { ...process.env, USE_MOCK_DATA: 'true', PORT: '0' },
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  const outputBuffer = bufferChildOutput(child);
+  t.after(async () => {
+    try {
+      await forceStop(child);
+    } finally {
+      outputBuffer.stop();
+    }
+  });
+
+  const startupOutput = await waitForStartup(child, outputBuffer, 'Whole House Status Add-on listening on');
+  const port = Number(startupOutput.match(/listening on (\d+)/)[1]);
+
+  const malformed = await request(port, '/%00');
+  assert.ok(malformed.statusCode >= 400);
+
+  const page = await request(port, '/');
+  assert.equal(page.statusCode, 200);
+});
+
+test('connected browser receives a duration warning without a Home Assistant event', async (t) => {
+  const publicDir = fs.mkdtempSync(path.join(os.tmpdir(), 'whole-house-status-public-'));
+  const optionsPath = path.join(publicDir, 'options.json');
+  fs.writeFileSync(path.join(publicDir, 'index.html'), '<h1>status</h1>');
+  fs.writeFileSync(optionsPath, JSON.stringify({
+    alerts: { default_on_duration_minutes: 0.001 }
+  }));
+  const app = createServer({
+    useMockData: true,
+    publicDir,
+    optionsPath,
+    refreshIntervalMs: 10,
+    logger: { warn: () => {}, error: () => {} }
+  });
+  const port = await listen(app.server);
+  let browser;
+  t.after(async () => {
+    if (browser) {
+      browser.terminate();
+    }
+    await close(app.server);
+    fs.rmSync(publicDir, { recursive: true, force: true });
+  });
+
+  const snapshots = await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Timed out waiting for a duration warning snapshot'));
+    }, 1_000);
+    const received = [];
+    browser = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    browser.on('error', reject);
+    browser.on('message', (message) => {
+      const snapshot = JSON.parse(message);
+      received.push(snapshot);
+      const warning = snapshot.alerts.find((device) => device.entity_id === 'switch.dian_shi_kai_guan');
+      if (warning && warning.reason === 'on_duration') {
+        clearTimeout(timeout);
+        browser.close();
+        resolve(received);
+      }
+    });
+  });
+
+  const initial = snapshots[0].devices.find((device) => device.entity_id === 'switch.dian_shi_kai_guan');
+  assert.equal(initial.reason, 'active');
+  assert.ok(snapshots.some((snapshot) => (
+    snapshot.alerts.some((device) => device.entity_id === 'switch.dian_shi_kai_guan' && device.reason === 'on_duration')
+  )));
+});
+
+test('connected browser receives a high-power warning without a Home Assistant event', async (t) => {
+  const publicDir = fs.mkdtempSync(path.join(os.tmpdir(), 'whole-house-status-public-'));
+  const optionsPath = path.join(publicDir, 'options.json');
+  const haClient = new EventEmitter();
+  haClient.connect = () => {};
+  haClient.close = () => {};
+  fs.writeFileSync(path.join(publicDir, 'index.html'), '<h1>status</h1>');
+  fs.writeFileSync(optionsPath, JSON.stringify({
+    alerts: {
+      default_on_duration_minutes: 1,
+      high_power_rules: [{
+        entity_id: 'switch.water_heater',
+        power_sensor: 'sensor.water_heater_power',
+        threshold_w: 800,
+        duration_minutes: 0.001
+      }]
+    }
+  }));
+  const app = createServer({
+    useMockData: false,
+    publicDir,
+    optionsPath,
+    refreshIntervalMs: 10,
+    haClientFactory: () => haClient,
+    logger: { warn: () => {}, error: () => {} }
+  });
+  const port = await listen(app.server);
+  let browser;
+  t.after(async () => {
+    if (browser) {
+      browser.terminate();
+    }
+    await close(app.server);
+    fs.rmSync(publicDir, { recursive: true, force: true });
+  });
+
+  haClient.emit('connection', true);
+  haClient.emit('states', [
+    { entity_id: 'switch.water_heater', state: 'on', attributes: { friendly_name: 'Water Heater' } },
+    { entity_id: 'sensor.water_heater_power', state: '900', attributes: { friendly_name: 'Water Heater Power' } }
+  ]);
+
+  const snapshots = await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Timed out waiting for a high-power warning snapshot'));
+    }, 1_000);
+    const received = [];
+    browser = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    browser.on('error', reject);
+    browser.on('message', (message) => {
+      const snapshot = JSON.parse(message);
+      received.push(snapshot);
+      const warning = snapshot.alerts.find((device) => device.entity_id === 'switch.water_heater');
+      if (warning && warning.reason === 'high_power') {
+        clearTimeout(timeout);
+        browser.close();
+        resolve(received);
+      }
+    });
+  });
+
+  const initial = snapshots[0].devices.find((device) => device.entity_id === 'switch.water_heater');
+  assert.equal(initial.reason, 'active');
+  assert.ok(snapshots.some((snapshot) => (
+    snapshot.alerts.some((device) => device.entity_id === 'switch.water_heater' && device.reason === 'high_power')
+  )));
+});
+
+test('ordinary server close clears the refresh interval', async (t) => {
+  const originalSetInterval = global.setInterval;
+  const originalClearInterval = global.clearInterval;
+  let refreshTimer;
+  let refreshTimerCleared = false;
+  global.setInterval = (...args) => {
+    refreshTimer = originalSetInterval(...args);
+    return refreshTimer;
+  };
+  global.clearInterval = (timer) => {
+    if (timer === refreshTimer) {
+      refreshTimerCleared = true;
+    }
+    return originalClearInterval(timer);
+  };
+  t.after(() => {
+    global.setInterval = originalSetInterval;
+    global.clearInterval = originalClearInterval;
+  });
+
+  const app = createServer({ useMockData: true, refreshIntervalMs: 10 });
+  await listen(app.server);
+  await close(app.server);
+
+  assert.equal(refreshTimerCleared, true);
+});
+
+test('ordinary server close stops refreshes before an open WebSocket disconnects', async (t) => {
+  const app = createServer({ useMockData: true, refreshIntervalMs: 10 });
+  const port = await listen(app.server);
+  let browser;
+  let serverClosed;
+  t.after(async () => {
+    if (browser) {
+      browser.terminate();
+    }
+    if (serverClosed) {
+      await serverClosed;
+    } else {
+      await close(app.server);
+    }
+  });
+
+  const snapshots = [];
+  await new Promise((resolve, reject) => {
+    browser = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    browser.once('error', reject);
+    browser.on('message', (message) => {
+      snapshots.push(JSON.parse(message));
+      if (snapshots.length === 1) {
+        resolve();
+      }
+    });
+  });
+
+  const closeStartedAt = Date.now();
+  serverClosed = close(app.server);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  assert.equal(snapshots.filter((snapshot) => Date.parse(snapshot.updated_at) > closeStartedAt).length, 0);
+});
+
 test('entrypoint exits cleanly after SIGTERM', async (t) => {
   const child = spawn(process.execPath, ['src/server.js'], {
     cwd: path.resolve(__dirname, '..'),

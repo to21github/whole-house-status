@@ -134,3 +134,123 @@ test('emits initial-load failures as errors', async () => {
   assert.deepEqual(errors, ['load failed']);
   client.close();
 });
+
+test('buffers state changes received after subscription until the initial snapshot is emitted in arrival order', async () => {
+  const client = createClient();
+  const emissions = [];
+  client.on('registries', () => emissions.push('registries'));
+  client.on('states', (states) => emissions.push(['states', states]));
+  client.on('state_changed', (event) => emissions.push(['state_changed', event]));
+  client.connect();
+  const socket = FakeWebSocket.instances[0];
+
+  socket.message({ type: 'auth_ok' });
+  const subscription = socket.sent.find((message) => message.type === 'subscribe_events');
+  assert.ok(subscription);
+  socket.message({ id: subscription.id, type: 'result', success: true, result: null });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const statesRequest = socket.sent.find((message) => message.type === 'get_states');
+  const entityRequest = socket.sent.find((message) => message.type === 'config/entity_registry/list');
+  const deviceRequest = socket.sent.find((message) => message.type === 'config/device_registry/list');
+  const areaRequest = socket.sent.find((message) => message.type === 'config/area_registry/list');
+  const changed = {
+    event_type: 'state_changed',
+    data: { entity_id: 'switch.desk', new_state: { entity_id: 'switch.desk', state: 'on' } }
+  };
+  const changedAgain = {
+    event_type: 'state_changed',
+    data: { entity_id: 'switch.desk', new_state: { entity_id: 'switch.desk', state: 'off' } }
+  };
+
+  socket.message({ type: 'event', event: changed });
+  socket.message({ type: 'event', event: changedAgain });
+  socket.message({
+    id: statesRequest.id,
+    type: 'result',
+    success: true,
+    result: [{ entity_id: 'switch.desk', state: 'off' }]
+  });
+  socket.message({ id: entityRequest.id, type: 'result', success: true, result: [] });
+  socket.message({ id: deviceRequest.id, type: 'result', success: true, result: [] });
+  socket.message({ id: areaRequest.id, type: 'result', success: true, result: [] });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(emissions, [
+    'registries',
+    ['states', [{ entity_id: 'switch.desk', state: 'off' }]],
+    ['state_changed', changed],
+    ['state_changed', changedAgain]
+  ]);
+  client.close();
+});
+
+test('reconnects instead of emitting state changes after an initial snapshot failure', async () => {
+  const client = createClient({ reconnectBaseMs: 1, reconnectMaxMs: 1 });
+  const errors = [];
+  const events = [];
+  client.on('error', (error) => errors.push(error.message));
+  client.on('state_changed', (event) => events.push(event));
+  client.connect();
+  const socket = FakeWebSocket.instances[0];
+
+  socket.message({ type: 'auth_ok' });
+  const subscription = socket.sent.find((message) => message.type === 'subscribe_events');
+  socket.message({ id: subscription.id, type: 'result', success: true, result: null });
+  await new Promise((resolve) => setImmediate(resolve));
+  const statesRequest = socket.sent.find((message) => message.type === 'get_states');
+  socket.message({
+    id: statesRequest.id,
+    type: 'result',
+    success: false,
+    error: { message: 'snapshot failed' }
+  });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  socket.message({
+    type: 'event',
+    event: {
+      event_type: 'state_changed',
+      data: { entity_id: 'switch.desk', new_state: { entity_id: 'switch.desk', state: 'on' } }
+    }
+  });
+
+  assert.deepEqual(errors, ['snapshot failed']);
+  assert.equal(socket.readyState, 3);
+  assert.equal(FakeWebSocket.instances.length, 2);
+  assert.deepEqual(events, []);
+  client.close();
+});
+
+test('does not replay a buffered state change after the sync socket closes', async () => {
+  const client = createClient({ reconnectBaseMs: 100, reconnectMaxMs: 100 });
+  const events = [];
+  client.on('error', () => {});
+  client.on('state_changed', (event) => events.push(event));
+  client.connect();
+  const socket = FakeWebSocket.instances[0];
+
+  socket.message({ type: 'auth_ok' });
+  const subscription = socket.sent.find((message) => message.type === 'subscribe_events');
+  socket.message({ id: subscription.id, type: 'result', success: true, result: null });
+  await new Promise((resolve) => setImmediate(resolve));
+  const statesRequest = socket.sent.find((message) => message.type === 'get_states');
+  socket.message({
+    type: 'event',
+    event: {
+      event_type: 'state_changed',
+      data: { entity_id: 'switch.desk', new_state: { entity_id: 'switch.desk', state: 'on' } }
+    }
+  });
+  socket.close();
+  socket.message({
+    id: statesRequest.id,
+    type: 'result',
+    success: true,
+    result: [{ entity_id: 'switch.desk', state: 'off' }]
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(events, []);
+  client.close();
+});
