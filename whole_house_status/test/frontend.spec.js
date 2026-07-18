@@ -124,6 +124,7 @@ test('renders the dashboard on desktop', async ({ page }) => {
 
   await expect(page.locator('#title')).toHaveText('全屋设备状态');
   await expect(page.locator('#title')).toHaveCSS('font-size', '32px');
+  await expect(page.locator('.page')).toHaveCSS('padding-top', '40px');
   await expect(page.locator('#stat-online')).toHaveText(/[1-9]\d*/);
   const allRoomsButton = page.getByRole('button', { name: '全部', exact: true });
   await expect(allRoomsButton).toHaveAttribute('aria-pressed', 'true');
@@ -136,6 +137,13 @@ test('renders the dashboard on desktop', async ({ page }) => {
   await expect(displayTrigger).toHaveCSS('min-width', '108px');
   await expect(displayTrigger).toHaveCSS('min-height', '42px');
   await expect(displayTrigger).toHaveCSS('font-size', '16px');
+  await displayTrigger.click();
+  const ignoredOption = page.locator('.show-ignored-option');
+  await expect(ignoredOption).toHaveCSS('width', '232px');
+  await expect(ignoredOption).toHaveCSS('padding-top', '12px');
+  await expect(ignoredOption).toHaveCSS('padding-left', '12px');
+  await expect(ignoredOption).toHaveCSS('column-gap', '10px');
+  await expect(ignoredOption).toHaveCSS('font-size', '18px');
   await expect(page.locator('#alerts .device-card')).toHaveCount(1);
   await expect(page.locator('#devices .device-card').first()).toBeVisible();
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(16, 16, 16)');
