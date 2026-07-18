@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.10
+
+- Reduce dashboard top spacing and compact the ignored-entity display menu.
+
 ## 0.1.9
 
 - Keep mobile room selector controls at a fixed width when their final row is incomplete.
