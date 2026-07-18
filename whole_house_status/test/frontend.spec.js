@@ -129,6 +129,13 @@ test('renders the dashboard on desktop', async ({ page }) => {
   await expect(allRoomsButton).toHaveAttribute('aria-pressed', 'true');
   await expect(allRoomsButton).toHaveCSS('background-color', 'rgb(213, 213, 213)');
   await expect(allRoomsButton).toHaveCSS('color', 'rgb(34, 34, 34)');
+  await expect(allRoomsButton).toHaveCSS('width', '96px');
+  await expect(allRoomsButton).toHaveCSS('min-height', '42px');
+  await expect(allRoomsButton).toHaveCSS('font-size', '18px');
+  const displayTrigger = page.locator('.display-menu summary');
+  await expect(displayTrigger).toHaveCSS('min-width', '108px');
+  await expect(displayTrigger).toHaveCSS('min-height', '42px');
+  await expect(displayTrigger).toHaveCSS('font-size', '16px');
   await expect(page.locator('#alerts .device-card')).toHaveCount(1);
   await expect(page.locator('#devices .device-card').first()).toBeVisible();
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(16, 16, 16)');
