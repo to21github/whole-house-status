@@ -14,6 +14,7 @@ Whole House Status is a Home Assistant OS Add-on for monitoring whole-house devi
 ## Local Development
 
 ```bash
+cd whole_house_status
 npm install
 USE_MOCK_DATA=true PORT=8099 npm start
 ```
@@ -23,18 +24,20 @@ Open [http://127.0.0.1:8099/](http://127.0.0.1:8099/).
 ## Verification
 
 ```bash
+cd whole_house_status
 npm run verify
 docker build -t whole-house-status-addon:local .
 ```
 
 ## Home Assistant OS Installation
 
-1. Using Samba or SSH, copy this Add-on directory (the directory that directly contains `config.yaml` and `Dockerfile`) to `/addons/whole_house_status` on Home Assistant OS.
-2. Open `Settings > Add-ons > Add-on Store`.
-3. From the top-right menu, select **Check for updates**. Refresh the page if necessary.
-4. In **Local apps**, install **Whole House Status**.
-5. Start the add-on. Ingress is enabled automatically by the Add-on metadata.
-6. Open `全屋设备状态` from the sidebar.
+1. Open `Settings > Add-ons > Add-on Store`.
+2. From the top-right menu, select **Repositories**.
+3. Add `https://github.com/to21github/whole-house-status` as an **Add-on repository**.
+4. Install **Whole House Status**.
+5. Configure the add-on.
+6. Restart the add-on.
+7. Open `全屋设备状态` from the sidebar.
 
 ## Options
 
