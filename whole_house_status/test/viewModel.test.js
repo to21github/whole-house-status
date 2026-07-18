@@ -103,6 +103,45 @@ test('buildViewModel retains configured ignored entities without counting them',
   });
 });
 
+test('buildViewModel treats Home Assistant hidden entities as ignored', () => {
+  const options = normalizeOptions({
+    entities: {
+      include_domains: ['switch', 'light'],
+      exclude_entities: []
+    }
+  });
+  const model = buildViewModel({
+    states: {
+      'switch.hidden': entity('switch.hidden', 'unavailable', 'HA 隐藏离线开关'),
+      'light.visible': entity('light.visible', 'off', '可见灯')
+    },
+    registries: {
+      entity: [{ entity_id: 'switch.hidden', hidden_by: 'user' }],
+      device: [],
+      area: []
+    },
+    options,
+    alertEngine: new AlertEngine(options),
+    now: Date.now(),
+    selectedRoom: '全部',
+    haConnected: true
+  });
+
+  assert.deepEqual(model.alerts.map((device) => ({
+    entity_id: device.entity_id,
+    ignored: device.ignored
+  })), [{
+    entity_id: 'switch.hidden',
+    ignored: true
+  }]);
+  assert.deepEqual(model.stats, {
+    online: 1,
+    on: 0,
+    warning: 0,
+    error: 0
+  });
+});
+
 test('buildViewModel includes configured room order', () => {
   const options = normalizeOptions({
     rooms: {

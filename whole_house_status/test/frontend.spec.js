@@ -299,11 +299,13 @@ test('shows ignored entities only when the display option is enabled', async ({ 
   await page.getByText('显示', { exact: true }).click();
   const showIgnored = page.getByLabel('显示已忽略的');
   await expect(showIgnored).not.toBeChecked();
-  await showIgnored.check();
+  await page.getByText('显示已忽略的', { exact: true }).click();
+  await expect(showIgnored).toBeChecked();
   await expect(page.locator('#alerts')).toContainText('已忽略离线开关');
   await expect(page.locator('#alerts')).toContainText('已忽略');
 
-  await showIgnored.uncheck();
+  await page.getByText('显示已忽略的', { exact: true }).click();
+  await expect(showIgnored).not.toBeChecked();
   await expect(page.locator('#alerts')).not.toContainText('已忽略离线开关');
 });
 

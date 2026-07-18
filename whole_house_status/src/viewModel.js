@@ -26,8 +26,10 @@ function includeEntity(entity, options) {
   return options.entities.include_domains.includes(domain);
 }
 
-function isIgnoredEntity(entity, options) {
-  return options.entities.exclude_entities.includes(entity.entity_id);
+function isIgnoredEntity(entity, options, registryIndexes) {
+  const registryEntity = registryIndexes.entityById[entity.entity_id];
+  return Boolean(registryEntity && registryEntity.hidden_by)
+    || options.entities.exclude_entities.includes(entity.entity_id);
 }
 
 function sortByStatusAndName(a, b) {
@@ -139,7 +141,7 @@ function buildViewModel({
     .map((entity) => {
       const room = resolveRoom(entity, registryIndexes, options);
       const statusResult = evaluateSafely(preparedAlertEngine, entity, stateMap, effectiveNow);
-      return createDevice(entity, room, statusResult, options, isIgnoredEntity(entity, options));
+      return createDevice(entity, room, statusResult, options, isIgnoredEntity(entity, options, registryIndexes));
     })
     .sort(sortByStatusAndName);
 

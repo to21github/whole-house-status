@@ -44,6 +44,18 @@ docker build -t whole-house-status-addon:local .
 
 After editing and saving options on the Add-on's **Configuration** page, restart the Add-on so it reads the updated `/data/options.json`.
 
+### Ignored Entities
+
+Entities hidden in the Home Assistant entity registry are automatically treated as ignored. You can also ignore specific dashboard entities without hiding them globally:
+
+```yaml
+entities:
+  exclude_entities:
+    - switch.example_offline_device
+```
+
+Ignored entities are hidden from the dashboard and statistics by default. Enable **显示 > 显示已忽略的** to review them in their Home Assistant Areas.
+
 Override a Home Assistant Area for an entity:
 
 ```yaml
