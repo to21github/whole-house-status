@@ -36,6 +36,15 @@
 
   function isViewModel(model) {
     const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
+    const isDevice = (device) => (
+      isObject(device)
+      && typeof device.entity_id === 'string'
+      && typeof device.name === 'string'
+      && typeof device.room === 'string'
+      && typeof device.status_label === 'string'
+      && typeof device.status_color === 'string'
+      && typeof device.show_entity_id === 'boolean'
+    );
     return isObject(model)
       && Array.isArray(model.rooms)
       && model.rooms.length > 0
@@ -47,6 +56,8 @@
       && ['online', 'on', 'warning', 'error'].every((key) => Number.isFinite(model.stats[key]))
       && Array.isArray(model.alerts)
       && Array.isArray(model.devices)
+      && model.alerts.every(isDevice)
+      && model.devices.every(isDevice)
       && isObject(model.connection)
       && typeof model.connection.ha_connected === 'boolean'
       && (model.connection.config_error == null || typeof model.connection.config_error === 'string');

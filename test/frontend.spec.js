@@ -169,6 +169,86 @@ test('ignores invalid messages before the first selected room model', async ({ p
   await expect(page.locator('#alerts')).toContainText('卧室告警设备');
 });
 
+test('filters a complete server device list after changing rooms', async ({ page }) => {
+  const model = {
+    title: '全屋设备状态',
+    selected_room: '客厅',
+    rooms: ['全部', '客厅', '卧室'],
+    stats: { online: 3, on: 1, warning: 1, error: 0 },
+    alerts: [{
+      entity_id: 'switch.bedroom_alert',
+      name: '卧室告警设备',
+      room: '卧室',
+      status_label: '超时',
+      status_color: 'orange',
+      show_entity_id: false
+    }],
+    devices: [{
+      entity_id: 'switch.living_room_lamp',
+      name: '客厅台灯',
+      room: '客厅',
+      status_label: '开启',
+      status_color: 'green',
+      show_entity_id: false
+    }, {
+      entity_id: 'switch.bedroom_lamp',
+      name: '卧室台灯',
+      room: '卧室',
+      status_label: '在线',
+      status_color: '',
+      show_entity_id: false
+    }],
+    connection: { ha_connected: true, config_error: null }
+  };
+  await mockWebSocket(page, [model]);
+  await page.goto(`${baseUrl}/`);
+
+  await expect(page.getByRole('button', { name: '客厅', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#devices')).toContainText('客厅台灯');
+  await expect(page.locator('#devices')).not.toContainText('卧室台灯');
+
+  await page.getByRole('button', { name: '卧室', exact: true }).click();
+  await expect(page.getByRole('button', { name: '卧室', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#devices')).toContainText('卧室台灯');
+  await expect(page.locator('#devices')).not.toContainText('客厅台灯');
+  await expect(page.locator('#alerts')).toContainText('卧室告警设备');
+});
+
+test('ignores nested invalid devices before a later valid model', async ({ page }) => {
+  const validModel = {
+    title: '全屋设备状态',
+    selected_room: '全部',
+    rooms: ['全部'],
+    stats: { online: 2, on: 1, warning: 1, error: 0 },
+    alerts: [{
+      entity_id: 'switch.alert',
+      name: '告警设备',
+      room: '客厅',
+      status_label: '超时',
+      status_color: 'orange',
+      show_entity_id: false
+    }],
+    devices: [{
+      entity_id: 'switch.visible',
+      name: '正常设备',
+      room: '客厅',
+      status_label: '开启',
+      status_color: 'green',
+      show_entity_id: false
+    }],
+    connection: { ha_connected: true, config_error: null }
+  };
+  const invalidModel = { ...validModel, alerts: [null], devices: [null] };
+  const pageErrors = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await mockWebSocket(page, [invalidModel, validModel]);
+  await page.goto(`${baseUrl}/`);
+
+  await expect(page.locator('#devices')).toContainText('正常设备');
+  await expect(page.locator('#alerts')).toContainText('告警设备');
+  expect(pageErrors).toEqual([]);
+});
+
 test('keeps a long status label inside its device card', async ({ page }) => {
   const model = {
     title: '全屋设备状态',

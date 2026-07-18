@@ -146,8 +146,11 @@ function buildViewModel({
 
   const selected = selectedRoom || '全部';
   const devices = allDisplayDevices
-    .filter((device) => device.status !== STATUS.ERROR && device.status !== STATUS.WARNING)
-    .filter((device) => selected === '全部' || device.room === selected);
+    .filter((device) => device.status !== STATUS.ERROR && device.status !== STATUS.WARNING);
+  const rooms = buildRooms(allDisplayDevices, options);
+  if (!rooms.includes(selected)) {
+    rooms.push(selected);
+  }
 
   const stats = {
     online: 0,
@@ -167,7 +170,7 @@ function buildViewModel({
   return {
     title: options.display.title,
     selected_room: selected,
-    rooms: buildRooms(allDisplayDevices, options),
+    rooms,
     stats,
     alerts,
     devices,

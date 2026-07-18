@@ -109,6 +109,37 @@ test('buildViewModel includes configured room order', () => {
   assert.equal(model.connection.config_error, '配置解析失败');
 });
 
+test('buildViewModel keeps all normal devices and an empty selected room for client filtering', () => {
+  const options = normalizeOptions({
+    display: { default_room: '书房' },
+    rooms: {
+      order: ['全部', '客厅', '卧室', '书房'],
+      overrides: {
+        'switch.living_room': '客厅',
+        'switch.bedroom': '卧室'
+      }
+    }
+  });
+  const model = buildViewModel({
+    states: {
+      'switch.living_room': entity('switch.living_room', 'off', '客厅开关'),
+      'switch.bedroom': entity('switch.bedroom', 'off', '卧室开关')
+    },
+    registries: { entity: [], device: [], area: [] },
+    options,
+    alertEngine: new AlertEngine(options),
+    now: Date.parse('2026-07-18T00:00:00Z'),
+    selectedRoom: '书房'
+  });
+
+  assert.equal(model.selected_room, '书房');
+  assert.deepEqual(new Set(model.devices.map((device) => device.entity_id)), new Set([
+    'switch.living_room',
+    'switch.bedroom'
+  ]));
+  assert.equal(model.rooms.includes('书房'), true);
+});
+
 test('buildViewModel prunes alert timers for entities absent from the snapshot', () => {
   const options = normalizeOptions({});
   const alertEngine = new AlertEngine(options);
