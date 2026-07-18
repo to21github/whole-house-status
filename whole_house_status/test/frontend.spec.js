@@ -134,13 +134,16 @@ test('renders the dashboard on desktop', async ({ page }) => {
   await expect(allRoomsButton).toHaveCSS('min-height', '42px');
   await expect(allRoomsButton).toHaveCSS('font-size', '18px');
   const displayTrigger = page.locator('.display-menu summary');
-  await expect(displayTrigger).toHaveCSS('min-width', '108px');
+  await expect(displayTrigger).toHaveCSS('width', '42px');
+  await expect(displayTrigger).toHaveCSS('min-width', '42px');
+  await expect(displayTrigger).toHaveCSS('height', '42px');
   await expect(displayTrigger).toHaveCSS('min-height', '42px');
   await expect(displayTrigger).toHaveCSS('font-size', '16px');
   await expect(displayTrigger).not.toContainText('显示');
   await expect(displayTrigger).toHaveAttribute('aria-label', '显示');
   await expect(displayTrigger).toHaveAttribute('title', '显示选项');
   await expect(displayTrigger).toHaveCSS('justify-content', 'center');
+  await expect(displayTrigger).toHaveCSS('border-radius', '50%');
   await expect(page.locator('.stat strong').first()).toHaveCSS('font-weight', '600');
 
   const firstCard = page.locator('#devices .device-card').first();
@@ -474,6 +477,10 @@ test('keeps the ignored-entities display menu inside the mobile viewport', async
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${baseUrl}/`);
 
+  const displayTrigger = page.locator('.display-menu summary');
+  await expect(displayTrigger).toHaveCSS('width', '42px');
+  await expect(displayTrigger).toHaveCSS('height', '42px');
+  await expect(displayTrigger).toHaveCSS('border-radius', '50%');
   await page.locator('summary').click();
   const option = page.locator('.show-ignored-option');
   await expect(option).toBeVisible();
