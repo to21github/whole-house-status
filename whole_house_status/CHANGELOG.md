@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7
+
+- Add persistent dashboard-only entity ignore actions without changing Home Assistant visibility.
+
 ## 0.1.6
 
 - Release an updated Home Assistant Add-on package.
