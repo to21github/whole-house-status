@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.8
+
+- Compact room selector and display control frames without changing text sizes.
+
 ## 0.1.7
 
 - Add persistent dashboard-only entity ignore actions without changing Home Assistant visibility.
