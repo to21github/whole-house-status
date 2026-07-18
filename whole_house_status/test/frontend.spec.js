@@ -455,6 +455,28 @@ test('keeps the ignored-entities display menu inside the mobile viewport', async
   expect(box.x + box.width).toBeLessThanOrEqual(390);
 });
 
+test('keeps mobile room controls fixed width when the final row is incomplete', async ({ page }) => {
+  const model = {
+    title: '全屋设备状态',
+    selected_room: '全部',
+    rooms: ['全部', '客厅', '门口', '主卧', '卫生间'],
+    stats: { online: 0, on: 0, warning: 0, error: 0 },
+    alerts: [],
+    devices: [],
+    connection: { ha_connected: true, config_error: null }
+  };
+  await mockWebSocket(page, [model]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${baseUrl}/`);
+  await expect(page.locator('#rooms button')).toHaveCount(5);
+
+  const widths = await page.locator('#rooms button').evaluateAll((buttons) => (
+    buttons.map((button) => getComputedStyle(button).width)
+  ));
+
+  expect(widths).toEqual(['96px', '96px', '96px', '96px', '96px']);
+});
+
 test('ignores nested invalid devices before a later valid model', async ({ page }) => {
   const validModel = {
     title: '全屋设备状态',
