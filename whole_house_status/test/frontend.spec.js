@@ -2,19 +2,19 @@ const { spawn } = require('node:child_process');
 const path = require('node:path');
 const { test, expect } = require('@playwright/test');
 
-const port = 8099;
-const baseUrl = `http://127.0.0.1:${port}`;
-const startupMessage = `Whole House Status Add-on listening on ${port}`;
+const startupPattern = /Whole House Status Add-on listening on ([1-9]\d*)/;
+let baseUrl;
 let serverProcess;
 
 function waitForStartup(process) {
   return new Promise((resolve, reject) => {
     let settled = false;
+    let output = '';
     const timeout = setTimeout(() => {
-      finish(new Error(`Server did not start within 10 seconds: ${startupMessage}`));
+      finish(new Error(`Server did not start within 10 seconds: ${output}`));
     }, 10_000);
 
-    function finish(error) {
+    function finish(error, port) {
       if (settled) {
         return;
       }
@@ -28,21 +28,23 @@ function waitForStartup(process) {
         reject(error);
         return;
       }
-      resolve();
+      resolve(port);
     }
 
     function onOutput(chunk) {
-      if (chunk.toString().includes(startupMessage)) {
-        finish();
+      output += chunk.toString();
+      const match = output.match(startupPattern);
+      if (match) {
+        finish(null, Number(match[1]));
       }
     }
 
     function onError(error) {
-      finish(error);
+      finish(new Error(`Server error before startup: ${error.message}: ${output}`));
     }
 
     function onExit(code, signal) {
-      finish(new Error(`Server exited before startup (code ${code}, signal ${signal})`));
+      finish(new Error(`Server exited before startup (code ${code}, signal ${signal}): ${output}`));
     }
 
     process.stdout.on('data', onOutput);
@@ -98,10 +100,11 @@ async function mockWebSocket(page, viewModels) {
 test.beforeAll(async () => {
   serverProcess = spawn('npm', ['start'], {
     cwd: path.resolve(__dirname, '..'),
-    env: { ...process.env, USE_MOCK_DATA: 'true', PORT: String(port) },
+    env: { ...process.env, USE_MOCK_DATA: 'true', PORT: '0' },
     stdio: ['ignore', 'pipe', 'pipe']
   });
-  await waitForStartup(serverProcess);
+  const port = await waitForStartup(serverProcess);
+  baseUrl = `http://127.0.0.1:${port}`;
 });
 
 test.afterAll(async () => {
