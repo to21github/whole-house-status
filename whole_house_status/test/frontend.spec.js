@@ -112,7 +112,7 @@ test.afterAll(async () => {
 });
 
 test('renders the dashboard on desktop', async ({ page }) => {
-  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.setViewportSize({ width: 1254, height: 1080 });
   await page.goto(`${baseUrl}/`);
 
   await expect(page.locator('#title')).toHaveText('全屋设备状态');
