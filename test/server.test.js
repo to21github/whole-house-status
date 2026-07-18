@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const EventEmitter = require('node:events');
+const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
@@ -26,6 +27,116 @@ function listen(server) {
 
 function close(server) {
   return new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+}
+
+function bufferChildOutput(child) {
+  let output = '';
+  const subscribers = new Set();
+
+  function onOutput(chunk) {
+    output += chunk.toString();
+    for (const subscriber of subscribers) {
+      subscriber();
+    }
+  }
+
+  child.stdout.on('data', onOutput);
+  child.stderr.on('data', onOutput);
+
+  return {
+    getOutput() {
+      return output;
+    },
+    subscribe(subscriber) {
+      subscribers.add(subscriber);
+      return () => subscribers.delete(subscriber);
+    },
+    stop() {
+      child.stdout.off('data', onOutput);
+      child.stderr.off('data', onOutput);
+    }
+  };
+}
+
+function waitForStartup(child, outputBuffer, message, timeoutMs = 5_000) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let unsubscribe;
+    const timeout = setTimeout(() => finish(new Error(`Server did not start within ${timeoutMs}ms: ${outputBuffer.getOutput()}`)), timeoutMs);
+
+    function finish(error) {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
+      unsubscribe();
+      child.off('error', onError);
+      child.off('exit', onExit);
+      if (error) {
+        reject(error);
+      } else {
+        resolve(outputBuffer.getOutput());
+      }
+    }
+
+    function onOutput(chunk) {
+      if (outputBuffer.getOutput().includes(message)) {
+        finish();
+      }
+    }
+
+    function onError(error) {
+      finish(error);
+    }
+
+    function onExit(code, signal) {
+      finish(new Error(`Server exited before startup (code ${code}, signal ${signal}): ${outputBuffer.getOutput()}`));
+    }
+
+    unsubscribe = outputBuffer.subscribe(onOutput);
+    child.once('error', onError);
+    child.once('exit', onExit);
+    onOutput();
+  });
+}
+
+function waitForExit(child, timeoutMs = 2_000) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => finish(new Error(`Server did not exit within ${timeoutMs}ms`)), timeoutMs);
+
+    function finish(error, code, signal) {
+      clearTimeout(timeout);
+      child.off('error', onError);
+      child.off('exit', onExit);
+      if (error) {
+        reject(error);
+      } else {
+        resolve({ code, signal });
+      }
+    }
+
+    function onError(error) {
+      finish(error);
+    }
+
+    function onExit(code, signal) {
+      finish(null, code, signal);
+    }
+
+    child.once('error', onError);
+    child.once('exit', onExit);
+  });
+}
+
+async function forceStop(child) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
+
+  const exited = waitForExit(child, 1_000);
+  child.kill('SIGKILL');
+  await exited;
 }
 
 test('safeFilePath rejects traversal and malformed encodings', () => {
@@ -107,4 +218,28 @@ test('production server rejects non-proxy HTTP and WebSocket traffic', async (t)
     browser.once('error', reject);
   });
   assert.equal(upgradeStatus, 403);
+});
+
+test('entrypoint exits cleanly after SIGTERM', async (t) => {
+  const child = spawn(process.execPath, ['src/server.js'], {
+    cwd: path.resolve(__dirname, '..'),
+    env: { ...process.env, USE_MOCK_DATA: 'true', PORT: '0' },
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  const outputBuffer = bufferChildOutput(child);
+  t.after(async () => {
+    try {
+      await forceStop(child);
+    } finally {
+      outputBuffer.stop();
+    }
+  });
+
+  const startupOutput = await waitForStartup(child, outputBuffer, 'Whole House Status Add-on listening on');
+  assert.match(startupOutput, /Whole House Status Add-on listening on [1-9]\d*/);
+  assert.equal(child.kill('SIGTERM'), true);
+
+  const result = await waitForExit(child);
+  assert.equal(result.code, 0);
+  assert.equal(result.signal, null);
 });

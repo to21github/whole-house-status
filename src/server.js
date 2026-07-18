@@ -8,9 +8,10 @@ const { StateStore } = require('./stateStore');
 const { buildViewModel } = require('./viewModel');
 const { HomeAssistantClient } = require('./haClient');
 
-const PORT = Number(process.env.PORT || 8099);
+const PORT = Number(process.env.PORT === undefined ? 8099 : process.env.PORT);
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const INGRESS_PROXY_ADDRESS = '172.30.32.2';
+const SHUTDOWN_TIMEOUT_MS = 5_000;
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -195,10 +196,64 @@ function createServer({
   return { server, browserWss, snapshot, broadcast, haClient };
 }
 
+function closeWithCallback(close) {
+  return new Promise((resolve) => {
+    try {
+      close(() => resolve());
+    } catch {
+      resolve();
+    }
+  });
+}
+
+async function closeApplication({ server, browserWss, haClient }) {
+  const serverClosed = closeWithCallback((done) => server.close(done));
+
+  for (const client of browserWss.clients) {
+    try {
+      client.terminate();
+    } catch {
+      // A browser client can already be closed while shutdown is in progress.
+    }
+  }
+
+  const browserWssClosed = closeWithCallback((done) => browserWss.close(done));
+  if (haClient) {
+    try {
+      haClient.close();
+    } catch {
+      // Continue closing the local server even if the HA client is already closed.
+    }
+  }
+
+  await Promise.all([serverClosed, browserWssClosed]);
+}
+
 function main() {
-  const { server } = createServer();
+  const app = createServer();
+  const { server } = app;
+  let shuttingDown = false;
+
+  function shutdown() {
+    if (shuttingDown) {
+      return;
+    }
+    shuttingDown = true;
+
+    const fallback = setTimeout(() => process.exit(0), SHUTDOWN_TIMEOUT_MS);
+    fallback.unref();
+    closeApplication(app).finally(() => {
+      clearTimeout(fallback);
+      process.exit(0);
+    });
+  }
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Whole House Status Add-on listening on ${PORT}`);
+    const address = server.address();
+    const listeningPort = address && typeof address === 'object' ? address.port : PORT;
+    console.log(`Whole House Status Add-on listening on ${listeningPort}`);
   });
 }
 
