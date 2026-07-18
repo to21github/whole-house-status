@@ -7,6 +7,7 @@ const { AlertEngine } = require('./alertEngine');
 const { StateStore } = require('./stateStore');
 const { buildViewModel } = require('./viewModel');
 const { HomeAssistantClient } = require('./haClient');
+const { IgnoredEntityStore, isEntityId } = require('./ignoredEntityStore');
 
 function resolvePort(value) {
   return Number(value === undefined || value === '' ? 8099 : value);
@@ -90,10 +91,22 @@ function rejectUpgrade(socket) {
   socket.destroy();
 }
 
+function isDashboardIgnoreCommand(command) {
+  return Boolean(
+    command
+    && typeof command === 'object'
+    && command.type === 'set_dashboard_entity_ignored'
+    && isEntityId(command.entity_id)
+    && typeof command.ignored === 'boolean'
+  );
+}
+
 function createServer({
   useMockData = process.env.USE_MOCK_DATA === 'true',
   token = process.env.SUPERVISOR_TOKEN,
   optionsPath,
+  ignoredEntitiesPath = process.env.IGNORED_ENTITIES_PATH || '/data/ignored-entities.json',
+  ignoredEntityStore,
   publicDir = PUBLIC_DIR,
   logger = console,
   haClientFactory = () => new HomeAssistantClient(),
@@ -117,6 +130,10 @@ function createServer({
 
   const store = new StateStore();
   const alertEngine = new AlertEngine(options);
+  const dashboardIgnoreStore = ignoredEntityStore || new IgnoredEntityStore({
+    filePath: ignoredEntitiesPath,
+    logger
+  });
   let registries = { entity: [], device: [], area: [] };
   let haConnected = false;
   if (useMockData) {
@@ -133,7 +150,8 @@ function createServer({
       now: Date.now(),
       selectedRoom: options.display.default_room,
       haConnected,
-      configError
+      configError,
+      dashboardIgnoredEntityIds: dashboardIgnoreStore.getEntityIds()
     });
   }
 
@@ -161,10 +179,40 @@ function createServer({
     }
   }
 
+  async function handleBrowserCommand(client, rawMessage) {
+    let command;
+    try {
+      command = JSON.parse(rawMessage.toString());
+    } catch {
+      return;
+    }
+    if (!isDashboardIgnoreCommand(command)) {
+      return;
+    }
+
+    try {
+      dashboardIgnoreStore.setIgnored(command.entity_id, command.ignored);
+      broadcast();
+      send(client, {
+        type: 'dashboard_entity_ignored_result',
+        entity_id: command.entity_id,
+        ignored: command.ignored
+      });
+    } catch (error) {
+      send(client, {
+        type: 'dashboard_entity_ignored_result',
+        entity_id: command.entity_id,
+        ignored: command.ignored,
+        error: error && error.message ? error.message : 'Unable to update dashboard ignored entities'
+      });
+    }
+  }
+
   browserWss.on('connection', (client) => {
     clients.add(client);
     send(client, snapshot());
     client.on('close', () => clients.delete(client));
+    client.on('message', (message) => handleBrowserCommand(client, message));
   });
 
   let refreshTimer = setInterval(() => {

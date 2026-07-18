@@ -252,6 +252,76 @@ test('mock server rejects percent-encoded NUL paths without losing service', asy
   assert.equal(page.statusCode, 200);
 });
 
+test('browser dashboard-ignore requests persist locally without updating Home Assistant', async (t) => {
+  const haClient = new EventEmitter();
+  const hiddenUpdates = [];
+  const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'whole-house-status-ignored-'));
+  const ignoredEntitiesPath = path.join(dataDirectory, 'ignored-entities.json');
+  haClient.connect = () => {};
+  haClient.close = () => {};
+  haClient.setEntityHidden = async (entityId, hidden) => {
+    hiddenUpdates.push({ entityId, hidden });
+    return { entity_id: entityId, hidden_by: hidden ? 'user' : null };
+  };
+  const app = createServer({
+    useMockData: false,
+    ignoredEntitiesPath,
+    haClientFactory: () => haClient,
+    logger: { warn: () => {}, error: () => {} }
+  });
+  const port = await listen(app.server);
+  let browser;
+  t.after(async () => {
+    if (browser) {
+      browser.terminate();
+    }
+    await close(app.server);
+    fs.rmSync(dataDirectory, { recursive: true, force: true });
+  });
+
+  haClient.emit('connection', true);
+  haClient.emit('registries', { entity: [{ entity_id: 'switch.desk' }], device: [], area: [] });
+  haClient.emit('states', [
+    { entity_id: 'switch.desk', state: 'off', attributes: { friendly_name: 'Desk Switch' } }
+  ]);
+
+  const messages = await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('Timed out waiting for entity-ignore result')), 1_000);
+    const received = [];
+    browser = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    browser.on('error', reject);
+    browser.on('message', (message) => {
+      const payload = JSON.parse(message);
+      received.push(payload);
+      if (received.length === 1) {
+        browser.send(JSON.stringify({
+          type: 'set_dashboard_entity_ignored',
+          entity_id: 'switch.desk',
+          ignored: true
+        }));
+      }
+      if (payload.type === 'dashboard_entity_ignored_result') {
+        clearTimeout(timeout);
+        browser.close();
+        resolve(received);
+      }
+    });
+  });
+
+  assert.deepEqual(hiddenUpdates, []);
+  assert.deepEqual(JSON.parse(fs.readFileSync(ignoredEntitiesPath, 'utf8')), ['switch.desk']);
+  assert.ok(messages.some((payload) => (
+    payload.devices && payload.devices.some((device) => (
+      device.entity_id === 'switch.desk' && device.dashboard_ignored === true
+    ))
+  )));
+  assert.ok(messages.some((payload) => (
+    payload.type === 'dashboard_entity_ignored_result'
+    && payload.entity_id === 'switch.desk'
+    && payload.ignored === true
+  )));
+});
+
 test('connected browser receives a duration warning without a Home Assistant event', async (t) => {
   const publicDir = fs.mkdtempSync(path.join(os.tmpdir(), 'whole-house-status-public-'));
   const optionsPath = path.join(publicDir, 'options.json');

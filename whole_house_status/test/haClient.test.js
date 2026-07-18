@@ -80,6 +80,12 @@ test('correlates command results with their request ids', async () => {
   client.close();
 });
 
+test('does not expose Home Assistant entity visibility updates', () => {
+  const client = createClient();
+
+  assert.equal(typeof client.setEntityHidden, 'undefined');
+});
+
 test('reports authentication rejection without scheduling a reconnect', async () => {
   const client = createClient();
   const errors = [];
