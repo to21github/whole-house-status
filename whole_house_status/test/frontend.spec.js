@@ -116,6 +116,7 @@ test('renders the dashboard on desktop', async ({ page }) => {
   await page.goto(`${baseUrl}/`);
 
   await expect(page.locator('#title')).toHaveText('全屋设备状态');
+  await expect(page.locator('#title')).toHaveCSS('font-size', '32px');
   await expect(page.locator('#stat-online')).toHaveText(/[1-9]\d*/);
   const allRoomsButton = page.getByRole('button', { name: '全部', exact: true });
   await expect(allRoomsButton).toHaveAttribute('aria-pressed', 'true');
