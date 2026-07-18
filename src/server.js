@@ -8,7 +8,11 @@ const { StateStore } = require('./stateStore');
 const { buildViewModel } = require('./viewModel');
 const { HomeAssistantClient } = require('./haClient');
 
-const PORT = Number(process.env.PORT === undefined ? 8099 : process.env.PORT);
+function resolvePort(value) {
+  return Number(value === undefined || value === '' ? 8099 : value);
+}
+
+const PORT = resolvePort(process.env.PORT);
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const INGRESS_PROXY_ADDRESS = '172.30.32.2';
 const SHUTDOWN_TIMEOUT_MS = 5_000;
@@ -265,6 +269,7 @@ module.exports = {
   main,
   createServer,
   createMockStates,
+  resolvePort,
   safeFilePath,
   isTrustedProxyAddress,
   isIngressRequestAllowed

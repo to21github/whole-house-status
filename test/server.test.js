@@ -7,7 +7,7 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const WebSocket = require('ws');
-const { createServer, isIngressRequestAllowed, isTrustedProxyAddress, safeFilePath } = require('../src/server');
+const { createServer, isIngressRequestAllowed, isTrustedProxyAddress, resolvePort, safeFilePath } = require('../src/server');
 
 function request(port, pathname) {
   return new Promise((resolve, reject) => {
@@ -145,6 +145,13 @@ test('safeFilePath rejects traversal and malformed encodings', () => {
   assert.equal(safeFilePath('/%2e%2e/secret.txt', publicDir), null);
   assert.equal(safeFilePath('/%E0%A4%A', publicDir), null);
   assert.equal(safeFilePath('/room/', publicDir), path.join(publicDir, 'room', 'index.html'));
+});
+
+test('resolvePort defaults only unset and empty values while preserving explicit ports', () => {
+  assert.equal(resolvePort(undefined), 8099);
+  assert.equal(resolvePort(''), 8099);
+  assert.equal(resolvePort('0'), 0);
+  assert.equal(resolvePort('4567'), 4567);
 });
 
 test('recognizes the Home Assistant ingress proxy address including IPv4-mapped IPv6', () => {
