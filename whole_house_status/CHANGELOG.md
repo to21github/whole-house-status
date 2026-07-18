@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.14
+
+- Use a compact custom checkbox for showing ignored entities.
+
 ## 0.1.13
 
 - Make the display control a circular icon button.
