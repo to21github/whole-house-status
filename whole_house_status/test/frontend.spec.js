@@ -124,6 +124,7 @@ test('renders the dashboard on desktop', async ({ page }) => {
   await expect(page.locator('#alerts .device-card')).toHaveCount(1);
   await expect(page.locator('#devices .device-card').first()).toBeVisible();
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(16, 16, 16)');
+  expect(Math.round((await page.locator('#devices .device-card').first().boundingBox()).width)).toBe(274);
   expect(await page.locator('.stats').evaluate((element) => (
     getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).filter(Boolean).length
   ))).toBe(4);
@@ -169,21 +170,28 @@ test('ignores invalid messages before the first selected room model', async ({ p
   await expect(page.getByRole('button', { name: '客厅', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#devices')).toContainText('客厅台灯');
   await expect(page.locator('#devices')).not.toContainText('卧室台灯');
-  await expect(page.locator('#alerts')).toContainText('卧室告警设备');
+  await expect(page.locator('#alerts')).not.toContainText('卧室告警设备');
 });
 
-test('filters a complete server device list after changing rooms', async ({ page }) => {
+test('filters normal and alert entities by Home Assistant Area after changing rooms', async ({ page }) => {
   const model = {
     title: '全屋设备状态',
     selected_room: '客厅',
     rooms: ['全部', '客厅', '卧室'],
-    stats: { online: 3, on: 1, warning: 1, error: 0 },
+    stats: { online: 3, on: 1, warning: 1, error: 1 },
     alerts: [{
-      entity_id: 'switch.bedroom_alert',
-      name: '卧室告警设备',
-      room: '卧室',
-      status_label: '超时',
+      entity_id: 'switch.living_room_alert',
+      name: '客厅高功率设备',
+      room: '客厅',
+      status_label: '高功率',
       status_color: 'orange',
+      show_entity_id: false
+    }, {
+      entity_id: 'switch.bedroom_alert',
+      name: '卧室离线设备',
+      room: '卧室',
+      status_label: '离线',
+      status_color: 'red',
       show_entity_id: false
     }],
     devices: [{
@@ -209,12 +217,117 @@ test('filters a complete server device list after changing rooms', async ({ page
   await expect(page.getByRole('button', { name: '客厅', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#devices')).toContainText('客厅台灯');
   await expect(page.locator('#devices')).not.toContainText('卧室台灯');
+  await expect(page.locator('#alerts')).toContainText('客厅高功率设备');
+  await expect(page.locator('#alerts')).not.toContainText('卧室离线设备');
 
   await page.getByRole('button', { name: '卧室', exact: true }).click();
   await expect(page.getByRole('button', { name: '卧室', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#devices')).toContainText('卧室台灯');
   await expect(page.locator('#devices')).not.toContainText('客厅台灯');
-  await expect(page.locator('#alerts')).toContainText('卧室告警设备');
+  await expect(page.locator('#alerts')).toContainText('卧室离线设备');
+  await expect(page.locator('#alerts')).not.toContainText('客厅高功率设备');
+});
+
+test('keeps warning and error cards on the standard border', async ({ page }) => {
+  const model = {
+    title: '全屋设备状态',
+    selected_room: '全部',
+    rooms: ['全部', '客厅'],
+    stats: { online: 1, on: 0, warning: 1, error: 1 },
+    alerts: [{
+      entity_id: 'switch.warning',
+      name: '高功率设备',
+      room: '客厅',
+      status_label: '高功率',
+      status_color: 'orange',
+      show_entity_id: false
+    }, {
+      entity_id: 'switch.error',
+      name: '离线设备',
+      room: '客厅',
+      status_label: '离线',
+      status_color: 'red',
+      show_entity_id: false
+    }],
+    devices: [],
+    connection: { ha_connected: true, config_error: null }
+  };
+  await mockWebSocket(page, [model]);
+  await page.goto(`${baseUrl}/`);
+
+  const alertCards = page.locator('#alerts .device-card');
+  await expect(alertCards).toHaveCount(2);
+  await expect(alertCards.nth(0)).toHaveCSS('border-color', 'rgb(52, 52, 52)');
+  await expect(alertCards.nth(1)).toHaveCSS('border-color', 'rgb(52, 52, 52)');
+  await expect(page.locator('#alerts .device-status.orange')).toHaveCSS('color', 'rgb(243, 161, 26)');
+  await expect(page.locator('#alerts .device-status.red')).toHaveCSS('color', 'rgb(255, 0, 30)');
+});
+
+test('shows ignored entities only when the display option is enabled', async ({ page }) => {
+  const model = {
+    title: '全屋设备状态',
+    selected_room: '全部',
+    rooms: ['全部', '客厅'],
+    stats: { online: 1, on: 0, warning: 0, error: 0 },
+    alerts: [{
+      entity_id: 'switch.ignored_offline',
+      name: '已忽略离线开关',
+      room: '客厅',
+      status_label: '离线',
+      status_color: 'red',
+      ignored: true,
+      show_entity_id: false
+    }],
+    devices: [{
+      entity_id: 'light.visible',
+      name: '可见灯',
+      room: '客厅',
+      status_label: '在线',
+      status_color: '',
+      ignored: false,
+      show_entity_id: false
+    }],
+    connection: { ha_connected: true, config_error: null }
+  };
+  await page.addInitScript(() => localStorage.removeItem('whole-house-status-show-ignored'));
+  await mockWebSocket(page, [model]);
+  await page.goto(`${baseUrl}/`);
+
+  await expect(page.locator('#devices')).toContainText('可见灯');
+  await expect(page.locator('#alerts')).not.toContainText('已忽略离线开关');
+
+  await page.getByText('显示', { exact: true }).click();
+  const showIgnored = page.getByLabel('显示已忽略的');
+  await expect(showIgnored).not.toBeChecked();
+  await showIgnored.check();
+  await expect(page.locator('#alerts')).toContainText('已忽略离线开关');
+  await expect(page.locator('#alerts')).toContainText('已忽略');
+
+  await showIgnored.uncheck();
+  await expect(page.locator('#alerts')).not.toContainText('已忽略离线开关');
+});
+
+test('keeps the ignored-entities display menu inside the mobile viewport', async ({ page }) => {
+  const model = {
+    title: '全屋设备状态',
+    selected_room: '全部',
+    rooms: ['全部'],
+    stats: { online: 0, on: 0, warning: 0, error: 0 },
+    alerts: [],
+    devices: [],
+    connection: { ha_connected: true, config_error: null }
+  };
+  await mockWebSocket(page, [model]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${baseUrl}/`);
+
+  await page.locator('summary').click();
+  const option = page.locator('.show-ignored-option');
+  await expect(option).toBeVisible();
+  const box = await option.boundingBox();
+
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
 });
 
 test('ignores nested invalid devices before a later valid model', async ({ page }) => {

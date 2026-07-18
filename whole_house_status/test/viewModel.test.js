@@ -60,7 +60,7 @@ test('buildViewModel computes stats and keeps alerts first', () => {
   assert.equal(model.devices[0].entity_id, 'light.door');
 });
 
-test('buildViewModel excludes configured entities and unsupported domains', () => {
+test('buildViewModel retains configured ignored entities without counting them', () => {
   const options = normalizeOptions({
     entities: {
       include_domains: ['switch', 'light'],
@@ -69,7 +69,7 @@ test('buildViewModel excludes configured entities and unsupported domains', () =
   });
   const model = buildViewModel({
     states: {
-      'switch.hidden': entity('switch.hidden', 'on', '隐藏开关'),
+      'switch.hidden': entity('switch.hidden', 'unavailable', '已忽略离线开关'),
       'media_player.tv': entity('media_player.tv', 'on', '电视'),
       'light.visible': entity('light.visible', 'off', '可见灯')
     },
@@ -81,7 +81,26 @@ test('buildViewModel excludes configured entities and unsupported domains', () =
     haConnected: true
   });
 
-  assert.deepEqual(model.devices.map((device) => device.entity_id), ['light.visible']);
+  assert.deepEqual(model.alerts.map((device) => ({
+    entity_id: device.entity_id,
+    ignored: device.ignored
+  })), [{
+    entity_id: 'switch.hidden',
+    ignored: true
+  }]);
+  assert.deepEqual(model.devices.map((device) => ({
+    entity_id: device.entity_id,
+    ignored: device.ignored
+  })), [{
+    entity_id: 'light.visible',
+    ignored: false
+  }]);
+  assert.deepEqual(model.stats, {
+    online: 1,
+    on: 0,
+    warning: 0,
+    error: 0
+  });
 });
 
 test('buildViewModel includes configured room order', () => {
@@ -322,6 +341,7 @@ test('buildViewModel returns safe error devices when the alert engine is unavail
       status_label: '故障',
       status_color: 'red',
       reason,
+      ignored: false,
       show_entity_id: true
     });
     assert.deepEqual(model.devices, []);

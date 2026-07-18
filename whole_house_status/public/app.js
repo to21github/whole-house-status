@@ -1,9 +1,28 @@
 (() => {
   'use strict';
 
+  const SHOW_IGNORED_STORAGE_KEY = 'whole-house-status-show-ignored';
+
+  function loadShowIgnored() {
+    try {
+      return window.localStorage.getItem(SHOW_IGNORED_STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  function persistShowIgnored(value) {
+    try {
+      window.localStorage.setItem(SHOW_IGNORED_STORAGE_KEY, String(value));
+    } catch {
+      // The dashboard remains usable when browser storage is unavailable.
+    }
+  }
+
   const state = {
     model: null,
     selectedRoom: '全部',
+    showIgnored: loadShowIgnored(),
     reconnectTimer: null
   };
   let socket = null;
@@ -15,6 +34,7 @@
     warning: document.getElementById('stat-warning'),
     error: document.getElementById('stat-error'),
     rooms: document.getElementById('rooms'),
+    showIgnored: document.getElementById('show-ignored'),
     connection: document.getElementById('connection'),
     alerts: document.getElementById('alerts'),
     devices: document.getElementById('devices')
@@ -43,6 +63,7 @@
       && typeof device.room === 'string'
       && typeof device.status_label === 'string'
       && typeof device.status_color === 'string'
+      && (device.ignored === undefined || typeof device.ignored === 'boolean')
       && typeof device.show_entity_id === 'boolean'
     );
     return isObject(model)
@@ -74,14 +95,22 @@
 
   function createDeviceCard(device, isAlert) {
     const card = document.createElement('article');
-    card.className = isAlert ? 'device-card alert-card' : 'device-card';
+    card.className = [
+      'device-card',
+      isAlert ? 'alert-card' : '',
+      device.ignored ? 'ignored-card' : ''
+    ].filter(Boolean).join(' ');
 
     const name = createTextElement('h2', 'device-name', device.name);
     const detail = device.show_entity_id ? device.entity_id : device.room;
     const meta = createTextElement('p', 'device-meta', detail);
     const status = createTextElement('p', `device-status ${statusClass(device.status_color)}`, device.status_label);
 
-    card.append(name, meta, status);
+    card.append(name, meta);
+    if (device.ignored) {
+      card.append(createTextElement('p', 'device-ignored', '已忽略'));
+    }
+    card.append(status);
     return card;
   }
 
@@ -134,9 +163,12 @@
     const alerts = Array.isArray(model.alerts) ? model.alerts : [];
     const devices = Array.isArray(model.devices) ? model.devices : [];
     const connection = model.connection || {};
-    const visibleDevices = devices.filter((device) => (
-      state.selectedRoom === '全部' || device.room === state.selectedRoom
-    ));
+    const isVisibleInSelectedRoom = (device) => (
+      (state.showIgnored || !device.ignored)
+      && (state.selectedRoom === '全部' || device.room === state.selectedRoom)
+    );
+    const visibleAlerts = alerts.filter(isVisibleInSelectedRoom);
+    const visibleDevices = devices.filter(isVisibleInSelectedRoom);
 
     elements.title.textContent = model.title || '全屋设备状态';
     document.title = elements.title.textContent;
@@ -144,9 +176,10 @@
     elements.on.textContent = String(stats.on || 0);
     elements.warning.textContent = String(stats.warning || 0);
     elements.error.textContent = String(stats.error || 0);
+    elements.showIgnored.checked = state.showIgnored;
     renderRooms(rooms);
     renderConnection(connection);
-    renderCards(elements.alerts, alerts, true);
+    renderCards(elements.alerts, visibleAlerts, true);
 
     if (visibleDevices.length === 0) {
       elements.devices.replaceChildren(createTextElement('p', 'empty-state', '当前房间没有可显示设备'));
@@ -154,6 +187,12 @@
     }
     renderCards(elements.devices, visibleDevices, false);
   }
+
+  elements.showIgnored.addEventListener('change', () => {
+    state.showIgnored = elements.showIgnored.checked;
+    persistShowIgnored(state.showIgnored);
+    render();
+  });
 
   function scheduleReconnect() {
     if (state.reconnectTimer !== null) {

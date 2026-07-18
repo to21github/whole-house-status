@@ -30,7 +30,19 @@
         </article>
       </section>
 
-      <nav id="rooms" class="rooms" aria-label="房间筛选"></nav>
+      <div class="filter-bar">
+        <nav id="rooms" class="rooms" aria-label="房间筛选"></nav>
+        <details class="display-menu">
+          <summary>
+            <span>显示</span>
+            <span class="filter-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+          </summary>
+          <label class="show-ignored-option">
+            <input id="show-ignored" type="checkbox">
+            <span>显示已忽略的</span>
+          </label>
+        </details>
+      </div>
       <div id="connection" class="connection" hidden></div>
       <hr class="divider">
       <section id="alerts" class="cards alerts" aria-label="异常设备"></section>

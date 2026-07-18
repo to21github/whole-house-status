@@ -23,10 +23,11 @@ function includeEntity(entity, options) {
     return false;
   }
   const domain = domainOf(entity.entity_id);
-  return (
-    options.entities.include_domains.includes(domain) &&
-    !options.entities.exclude_entities.includes(entity.entity_id)
-  );
+  return options.entities.include_domains.includes(domain);
+}
+
+function isIgnoredEntity(entity, options) {
+  return options.entities.exclude_entities.includes(entity.entity_id);
 }
 
 function sortByStatusAndName(a, b) {
@@ -43,7 +44,7 @@ function sortByStatusAndName(a, b) {
   return nameComparison || a.entity_id.localeCompare(b.entity_id, 'zh-CN');
 }
 
-function createDevice(entity, room, statusResult, options) {
+function createDevice(entity, room, statusResult, options, ignored) {
   return {
     entity_id: entity.entity_id,
     name: friendlyName(entity),
@@ -53,6 +54,7 @@ function createDevice(entity, room, statusResult, options) {
     status_label: statusResult.label,
     status_color: statusResult.color,
     reason: statusResult.reason,
+    ignored,
     show_entity_id: options.display.show_entity_id
   };
 }
@@ -137,7 +139,7 @@ function buildViewModel({
     .map((entity) => {
       const room = resolveRoom(entity, registryIndexes, options);
       const statusResult = evaluateSafely(preparedAlertEngine, entity, stateMap, effectiveNow);
-      return createDevice(entity, room, statusResult, options);
+      return createDevice(entity, room, statusResult, options, isIgnoredEntity(entity, options));
     })
     .sort(sortByStatusAndName);
 
@@ -159,6 +161,9 @@ function buildViewModel({
     error: 0
   };
   for (const device of allDisplayDevices) {
+    if (device.ignored) {
+      continue;
+    }
     if (device.status !== STATUS.ERROR) {
       stats.online += 1;
     }
@@ -185,5 +190,6 @@ function buildViewModel({
 module.exports = {
   buildViewModel,
   domainOf,
-  includeEntity
+  includeEntity,
+  isIgnoredEntity
 };
