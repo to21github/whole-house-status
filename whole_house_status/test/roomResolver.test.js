@@ -65,6 +65,19 @@ test('buildRooms keeps configured order and appends discovered rooms', () => {
   assert.deepEqual(rooms, ['全部', '门口', '客厅', '厨房']);
 });
 
+test('buildRooms always places 未分组 after every named room', () => {
+  const options = normalizeOptions({
+    rooms: { order: ['全部', '未分组', '门口', '客厅'] }
+  });
+  const rooms = buildRooms([
+    { room: '未分组' },
+    { room: '客厅' },
+    { room: '门口' }
+  ], options);
+
+  assert.deepEqual(rooms, ['全部', '门口', '客厅', '未分组']);
+});
+
 test('StateStore applies state_changed events', () => {
   const store = new StateStore();
   store.setStates([

@@ -61,9 +61,13 @@ function resolveRoom(entity, registries = {}, options) {
 
 function buildRooms(devices, options) {
   const discovered = [...new Set(devices.map((device) => device.room).filter(Boolean))];
+  const hasUnassigned = discovered.includes('未分组');
   const ordered = [];
 
   for (const room of options.rooms.order) {
+    if (room === '未分组') {
+      continue;
+    }
     if ((room === '全部' || discovered.includes(room)) && !ordered.includes(room)) {
       ordered.push(room);
     }
@@ -74,9 +78,13 @@ function buildRooms(devices, options) {
   }
 
   for (const room of discovered) {
-    if (!ordered.includes(room)) {
+    if (room !== '未分组' && !ordered.includes(room)) {
       ordered.push(room);
     }
+  }
+
+  if (hasUnassigned) {
+    ordered.push('未分组');
   }
 
   return ordered;
