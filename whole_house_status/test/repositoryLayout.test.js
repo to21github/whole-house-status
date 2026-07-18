@@ -41,6 +41,7 @@ test('Home Assistant repository layout exposes the Whole House Status add-on', (
 
   for (const relativePath of [
     'whole_house_status/config.yaml',
+    'whole_house_status/CHANGELOG.md',
     'whole_house_status/Dockerfile',
     'whole_house_status/package.json',
   ]) {
