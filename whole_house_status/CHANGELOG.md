@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.15
+
+- Align the mobile room filter grid with the statistics cards and keep the display icon beside the final room.
+
 ## 0.1.14
 
 - Use a compact custom checkbox for showing ignored entities.
