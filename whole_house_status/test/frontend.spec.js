@@ -139,7 +139,24 @@ test('renders the dashboard on desktop', async ({ page }) => {
   await expect(displayTrigger).toHaveCSS('font-size', '16px');
   await displayTrigger.click();
   const ignoredOption = page.locator('.show-ignored-option');
-  await expect(ignoredOption).toHaveCSS('width', '232px');
+  const optionMetrics = await ignoredOption.evaluate((element) => {
+    const checkbox = element.querySelector('input');
+    const label = element.querySelector('span');
+    const styles = getComputedStyle(element);
+    const requiredWidth = checkbox.getBoundingClientRect().width
+      + Number.parseFloat(styles.columnGap)
+      + label.getBoundingClientRect().width
+      + Number.parseFloat(styles.paddingLeft)
+      + Number.parseFloat(styles.paddingRight)
+      + Number.parseFloat(styles.borderLeftWidth)
+      + Number.parseFloat(styles.borderRightWidth);
+
+    return {
+      actualWidth: element.getBoundingClientRect().width,
+      requiredWidth
+    };
+  });
+  expect(Math.abs(optionMetrics.actualWidth - optionMetrics.requiredWidth)).toBeLessThanOrEqual(1);
   await expect(ignoredOption).toHaveCSS('padding-top', '12px');
   await expect(ignoredOption).toHaveCSS('padding-left', '12px');
   await expect(ignoredOption).toHaveCSS('column-gap', '10px');
