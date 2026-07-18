@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.6
+
+- Release an updated Home Assistant Add-on package.
+
 ## 0.1.5
 
 - Add the Home Assistant Add-on changelog required for Supervisor updates.
