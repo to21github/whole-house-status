@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.13
+
+- Make the display control a circular icon button.
+
 ## 0.1.12
 
 - Keep unassigned rooms last, align mobile room controls, and improve display and card readability.
