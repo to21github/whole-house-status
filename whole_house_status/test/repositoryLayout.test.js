@@ -36,7 +36,7 @@ test('Home Assistant repository layout exposes the Whole House Status add-on', (
   const readme = fs.readFileSync(path.join(repositoryRoot, 'README.md'), 'utf8');
   assert.match(
     readme,
-    /Install \*\*Whole House Status\*\*\.\n5\. Start the add-on\.\n6\. Configure the add-on\.\n7\. Restart the add-on\./,
+    /Install \*\*Whole House Status\*\*\.\n5\. Start the add-on\.\n6\. Configure the add-on\.\n7\. Restart the add-on\.\n8\. Open `全屋设备状态` from the sidebar\./,
   );
 
   for (const relativePath of [
