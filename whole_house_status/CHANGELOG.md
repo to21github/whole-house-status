@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.12
+
+- Keep unassigned rooms last, align mobile room controls, and improve display and card readability.
+
 ## 0.1.11
 
 - Fit the ignored-entity display option to its content.

@@ -53,6 +53,6 @@ test('Home Assistant repository layout exposes the Whole House Status add-on', (
 
   const config = fs.readFileSync(path.join(repositoryRoot, 'whole_house_status', 'config.yaml'), 'utf8');
   const changelog = fs.readFileSync(path.join(repositoryRoot, 'whole_house_status', 'CHANGELOG.md'), 'utf8');
-  assert.match(config, /^version: "0\.1\.11"$/m);
-  assert.match(changelog, /^## 0\.1\.11$/m);
+  assert.match(config, /^version: "0\.1\.12"$/m);
+  assert.match(changelog, /^## 0\.1\.12$/m);
 });
