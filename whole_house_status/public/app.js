@@ -118,6 +118,8 @@
     const name = createTextElement('h2', 'device-name', device.name);
     const detail = device.show_entity_id ? device.entity_id : device.room;
     const meta = createTextElement('p', 'device-meta', detail);
+    name.title = device.name;
+    meta.title = device.entity_id;
     const status = createTextElement('p', `device-status ${statusClass(device.status_color)}`, device.status_label);
     if (canToggleDashboardIgnore(device)) {
       const action = document.createElement('button');

@@ -99,7 +99,7 @@ button {
   margin: 0;
   color: var(--text);
   font-size: 42px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -153,8 +153,8 @@ button {
 .display-menu summary {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: center;
+  gap: 0;
   min-width: 108px;
   min-height: 42px;
   padding: 0 12px;
@@ -392,6 +392,9 @@ button {
   }
 
   .rooms {
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-columns: repeat(auto-fit, minmax(96px, 96px));
     gap: 10px;
   }
 
@@ -403,6 +406,7 @@ button {
 
   .display-menu {
     align-self: flex-start;
+    order: 2;
   }
 
   .show-ignored-option {

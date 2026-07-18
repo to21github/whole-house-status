@@ -137,6 +137,17 @@ test('renders the dashboard on desktop', async ({ page }) => {
   await expect(displayTrigger).toHaveCSS('min-width', '108px');
   await expect(displayTrigger).toHaveCSS('min-height', '42px');
   await expect(displayTrigger).toHaveCSS('font-size', '16px');
+  await expect(displayTrigger).not.toContainText('显示');
+  await expect(displayTrigger).toHaveAttribute('aria-label', '显示');
+  await expect(displayTrigger).toHaveAttribute('title', '显示选项');
+  await expect(displayTrigger).toHaveCSS('justify-content', 'center');
+  await expect(page.locator('.stat strong').first()).toHaveCSS('font-weight', '600');
+
+  const firstCard = page.locator('#devices .device-card').first();
+  const cardName = firstCard.locator('.device-name');
+  const cardMeta = firstCard.locator('.device-meta');
+  await expect(cardName).toHaveAttribute('title', await cardName.textContent());
+  await expect(cardMeta).toHaveAttribute('title', await cardMeta.textContent());
   await displayTrigger.click();
   const ignoredOption = page.locator('.show-ignored-option');
   const optionMetrics = await ignoredOption.evaluate((element) => {
@@ -343,7 +354,7 @@ test('shows ignored entities only when the display option is enabled', async ({ 
   await expect(page.locator('#devices')).toContainText('可见灯');
   await expect(page.locator('#alerts')).not.toContainText('已忽略离线开关');
 
-  await page.getByText('显示', { exact: true }).click();
+  await page.locator('.display-menu summary').click();
   const showIgnored = page.getByLabel('显示已忽略的实体');
   await expect(showIgnored).not.toBeChecked();
   await page.getByText('显示已忽略的实体', { exact: true }).click();
@@ -399,7 +410,7 @@ test('immediately hides and restores dashboard ignored cards without a Home Assi
       new MessageEvent('message', { data: JSON.stringify(model) })
     );
   }, ignoredModel);
-  await page.getByText('显示', { exact: true }).click();
+  await page.locator('.display-menu summary').click();
   await page.getByLabel('显示已忽略的实体').check();
   const ignoredCard = page.locator('#devices .device-card', { hasText: '可见开关' });
   const restoreButton = ignoredCard.getByRole('button', { name: '不再忽略' });
@@ -442,7 +453,7 @@ test('does not offer dashboard restore controls for externally ignored cards', a
   await mockWebSocket(page, [model]);
   await page.goto(`${baseUrl}/`);
 
-  await page.getByText('显示', { exact: true }).click();
+  await page.locator('.display-menu summary').click();
   await page.getByLabel('显示已忽略的实体').check();
   const card = page.locator('#devices .device-card', { hasText: '配置忽略开关' });
   await expect(card).toBeVisible();
@@ -476,7 +487,7 @@ test('keeps mobile room controls fixed width when the final row is incomplete', 
   const model = {
     title: '全屋设备状态',
     selected_room: '全部',
-    rooms: ['全部', '客厅', '门口', '主卧', '卫生间'],
+    rooms: ['全部', '客厅', '门口', '主卧', '卫生间', '未分组'],
     stats: { online: 0, on: 0, warning: 0, error: 0 },
     alerts: [],
     devices: [],
@@ -485,13 +496,31 @@ test('keeps mobile room controls fixed width when the final row is incomplete', 
   await mockWebSocket(page, [model]);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${baseUrl}/`);
-  await expect(page.locator('#rooms button')).toHaveCount(5);
+  await expect(page.locator('#rooms button')).toHaveCount(6);
 
   const widths = await page.locator('#rooms button').evaluateAll((buttons) => (
     buttons.map((button) => getComputedStyle(button).width)
   ));
 
-  expect(widths).toEqual(['96px', '96px', '96px', '96px', '96px']);
+  expect(widths).toEqual(['96px', '96px', '96px', '96px', '96px', '96px']);
+  await expect(page.locator('#rooms')).toHaveCSS('display', 'grid');
+  const roomColumns = await page.locator('#rooms').evaluate((element) => (
+    getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).filter(Boolean).length
+  ));
+  expect(roomColumns).toBe(3);
+
+  const roomNames = await page.locator('#rooms button').allTextContents();
+  expect(roomNames.at(-1)).toBe('未分组');
+  const roomBoxes = await page.locator('#rooms button').evaluateAll((buttons) => (
+    buttons.map((button) => {
+      const box = button.getBoundingClientRect();
+      return { x: box.x, y: box.y, width: box.width, height: box.height };
+    })
+  ));
+  expect(Math.abs(roomBoxes[0].x - roomBoxes[3].x)).toBeLessThanOrEqual(1);
+  const displayBox = await page.locator('.display-menu summary').boundingBox();
+  const lastRoomBox = roomBoxes.at(-1);
+  expect(displayBox.y).toBeGreaterThanOrEqual(lastRoomBox.y + lastRoomBox.height);
 });
 
 test('ignores nested invalid devices before a later valid model', async ({ page }) => {
