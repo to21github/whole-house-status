@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.9
+
+- Keep mobile room selector controls at a fixed width when their final row is incomplete.
+
 ## 0.1.8
 
 - Compact room selector and display control frames without changing text sizes.
