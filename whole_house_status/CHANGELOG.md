@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.11
+
+- Fit the ignored-entity display option to its content.
+
 ## 0.1.10
 
 - Reduce dashboard top spacing and compact the ignored-entity display menu.
