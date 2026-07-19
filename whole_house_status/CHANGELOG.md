@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.19 - 2026-07-19
+
+- Fix runtime room-order saves by unwrapping the Supervisor options response before updating the add-on configuration.
+
 ## 0.1.18 - 2026-07-19
 
 - Add dashboard drag sorting for room filters and persist the resulting `rooms.order` through the Supervisor API.
