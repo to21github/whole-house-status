@@ -32,6 +32,13 @@ test('rejects malformed displayed room submissions', () => {
   assert.equal(isValidDisplayedRoomOrder(null, displayed), false);
 });
 
+test('rejects sparse displayed room submissions', () => {
+  const displayed = [FIRST_ROOM, '客厅', '厨房'];
+  const candidate = [FIRST_ROOM, , '厨房'];
+
+  assert.equal(isValidDisplayedRoomOrder(candidate, displayed), false);
+});
+
 test('accepts a displayed reorder without an unassigned-room sentinel', () => {
   const displayed = [FIRST_ROOM, '客厅', '厨房'];
   const candidate = [FIRST_ROOM, '厨房', '客厅'];

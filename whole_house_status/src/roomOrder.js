@@ -6,7 +6,17 @@ function isRoomName(value) {
 }
 
 function isValidRoomList(rooms) {
-  return Array.isArray(rooms) && rooms.every(isRoomName) && new Set(rooms).size === rooms.length;
+  if (!Array.isArray(rooms)) {
+    return false;
+  }
+
+  for (let index = 0; index < rooms.length; index += 1) {
+    if (!Object.hasOwn(rooms, index) || !isRoomName(rooms[index])) {
+      return false;
+    }
+  }
+
+  return new Set(rooms).size === rooms.length;
 }
 
 function hasValidSentinelPositions(rooms) {
