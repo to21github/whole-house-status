@@ -119,6 +119,31 @@ with:
 
 These assertions must fail before the implementation because `#ignored` does not yet exist.
 
+- [ ] **Step 4: Update the display-toggle test expectations**
+
+In `shows ignored entities only when the display option is enabled`, replace the post-check assertions:
+
+```js
+  await expect(page.locator('#alerts')).toContainText('已忽略离线开关');
+  await expect(page.locator('#alerts')).toContainText('已忽略');
+```
+
+with:
+
+```js
+  await expect(page.locator('#ignored')).toContainText('已忽略离线开关');
+  await expect(page.locator('#ignored')).toContainText('已忽略');
+  await expect(page.locator('#alerts')).not.toContainText('已忽略离线开关');
+```
+
+Replace its final assertion with:
+
+```js
+  await expect(page.locator('#ignored')).toBeHidden();
+```
+
+This preserves the original toggle behavior test while asserting the new section boundary.
+
 ### Task 2: Add the conditional ignored card container
 
 **Files:**
