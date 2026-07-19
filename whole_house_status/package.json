@@ -5,9 +5,16 @@
   "main": "src/server.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js",
+    "test:unit": "node --test test/*.test.js",
+    "test:frontend": "playwright test test/frontend.spec.js",
+    "verify": "npm run test:unit && npm run test:frontend"
   },
   "dependencies": {
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.45.0"
   }
 }
