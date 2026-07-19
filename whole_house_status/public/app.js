@@ -38,6 +38,8 @@
     rooms: document.getElementById('rooms'),
     showIgnored: document.getElementById('show-ignored'),
     connection: document.getElementById('connection'),
+    ignored: document.getElementById('ignored'),
+    ignoredDivider: document.getElementById('ignored-divider'),
     alerts: document.getElementById('alerts'),
     devices: document.getElementById('devices')
   };
@@ -193,12 +195,20 @@
     const alerts = Array.isArray(model.alerts) ? model.alerts : [];
     const devices = Array.isArray(model.devices) ? model.devices : [];
     const connection = model.connection || {};
-    const isVisibleInSelectedRoom = (device) => (
-      (state.showIgnored || !effectiveIgnored(device))
-      && (state.selectedRoom === '全部' || device.room === state.selectedRoom)
+    const isInSelectedRoom = (device) => (
+      state.selectedRoom === '全部' || device.room === state.selectedRoom
     );
-    const visibleAlerts = alerts.filter(isVisibleInSelectedRoom);
-    const visibleDevices = devices.filter(isVisibleInSelectedRoom);
+    const ignoredDevices = state.showIgnored
+      ? [...alerts, ...devices].filter((device) => (
+        isInSelectedRoom(device) && effectiveIgnored(device)
+      ))
+      : [];
+    const visibleAlerts = alerts.filter((device) => (
+      isInSelectedRoom(device) && !effectiveIgnored(device)
+    ));
+    const visibleDevices = devices.filter((device) => (
+      isInSelectedRoom(device) && !effectiveIgnored(device)
+    ));
 
     elements.title.textContent = model.title || '全屋设备状态';
     document.title = elements.title.textContent;
@@ -230,6 +240,10 @@
         render();
       }
     };
+    const hasIgnoredDevices = ignoredDevices.length > 0;
+    elements.ignored.hidden = !hasIgnoredDevices;
+    elements.ignoredDivider.hidden = !hasIgnoredDevices;
+    renderCards(elements.ignored, ignoredDevices, false, setDashboardEntityIgnored);
     renderCards(elements.alerts, visibleAlerts, true, setDashboardEntityIgnored);
 
     if (visibleDevices.length === 0) {

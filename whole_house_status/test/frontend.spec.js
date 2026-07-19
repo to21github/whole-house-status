@@ -376,12 +376,100 @@ test('shows ignored entities only when the display option is enabled', async ({ 
   await expect(showIgnored).not.toBeChecked();
   await page.getByText('显示已忽略的实体', { exact: true }).click();
   await expect(showIgnored).toBeChecked();
-  await expect(page.locator('#alerts')).toContainText('已忽略离线开关');
-  await expect(page.locator('#alerts')).toContainText('已忽略');
+  await expect(page.locator('#ignored')).toContainText('已忽略离线开关');
+  await expect(page.locator('#ignored')).toContainText('已忽略');
+  await expect(page.locator('#alerts')).not.toContainText('已忽略离线开关');
 
   await page.getByText('显示已忽略的实体', { exact: true }).click();
   await expect(showIgnored).not.toBeChecked();
-  await expect(page.locator('#alerts')).not.toContainText('已忽略离线开关');
+  await expect(page.locator('#ignored')).toBeHidden();
+});
+
+test('separates ignored cards from unignored alerts in the selected room', async ({ page }) => {
+  const model = {
+    title: '全屋设备状态',
+    selected_room: '全部',
+    rooms: ['全部', '客厅', '主卧'],
+    stats: { online: 2, on: 0, warning: 1, error: 1 },
+    alerts: [{
+      entity_id: 'switch.ignored_living_alert',
+      name: '客厅已忽略离线开关',
+      room: '客厅',
+      status_label: '离线',
+      status_color: 'red',
+      ignored: true,
+      show_entity_id: false
+    }, {
+      entity_id: 'switch.living_alert',
+      name: '客厅高功率开关',
+      room: '客厅',
+      status_label: '高功率',
+      status_color: 'orange',
+      ignored: false,
+      show_entity_id: false
+    }, {
+      entity_id: 'switch.ignored_bedroom_alert',
+      name: '主卧已忽略离线开关',
+      room: '主卧',
+      status_label: '离线',
+      status_color: 'red',
+      ignored: true,
+      show_entity_id: false
+    }],
+    devices: [{
+      entity_id: 'light.ignored_living',
+      name: '客厅已忽略灯',
+      room: '客厅',
+      status_label: '在线',
+      status_color: '',
+      ignored: true,
+      show_entity_id: false
+    }, {
+      entity_id: 'light.living',
+      name: '客厅可见灯',
+      room: '客厅',
+      status_label: '在线',
+      status_color: '',
+      ignored: false,
+      show_entity_id: false
+    }, {
+      entity_id: 'light.bedroom',
+      name: '主卧可见灯',
+      room: '主卧',
+      status_label: '在线',
+      status_color: '',
+      ignored: false,
+      show_entity_id: false
+    }],
+    connection: { ha_connected: true, config_error: null }
+  };
+  await page.addInitScript(() => localStorage.removeItem('whole-house-status-show-ignored'));
+  await mockWebSocket(page, [model]);
+  await page.goto(`${baseUrl}/`);
+
+  const ignored = page.locator('#ignored');
+  const ignoredDivider = page.locator('#ignored-divider');
+  await expect(ignored).toBeHidden();
+  await expect(ignoredDivider).toBeHidden();
+
+  await page.locator('.display-menu summary').click();
+  await page.getByLabel('显示已忽略的实体').check();
+  await expect(ignored).toContainText('客厅已忽略离线开关');
+  await expect(ignored).toContainText('客厅已忽略灯');
+  await expect(ignored).toContainText('主卧已忽略离线开关');
+  await expect(page.locator('#alerts')).toContainText('客厅高功率开关');
+  await expect(page.locator('#alerts')).not.toContainText('客厅已忽略离线开关');
+  await expect(page.locator('#devices')).toContainText('客厅可见灯');
+  await expect(page.locator('#devices')).not.toContainText('客厅已忽略灯');
+  await expect(ignoredDivider).toBeVisible();
+
+  await page.getByRole('button', { name: '客厅', exact: true }).click();
+  await expect(ignored).toContainText('客厅已忽略离线开关');
+  await expect(ignored).toContainText('客厅已忽略灯');
+  await expect(ignored).not.toContainText('主卧已忽略离线开关');
+  await expect(page.locator('#alerts')).toContainText('客厅高功率开关');
+  await expect(page.locator('#devices')).toContainText('客厅可见灯');
+  await expect(page.locator('#devices')).not.toContainText('主卧可见灯');
 });
 
 test('immediately hides and restores dashboard ignored cards without a Home Assistant command', async ({ page }) => {
@@ -429,7 +517,7 @@ test('immediately hides and restores dashboard ignored cards without a Home Assi
   }, ignoredModel);
   await page.locator('.display-menu summary').click();
   await page.getByLabel('显示已忽略的实体').check();
-  const ignoredCard = page.locator('#devices .device-card', { hasText: '可见开关' });
+  const ignoredCard = page.locator('#ignored .device-card', { hasText: '可见开关' });
   const restoreButton = ignoredCard.getByRole('button', { name: '不再忽略' });
   await expect(restoreButton).toBeVisible();
   await restoreButton.click();
@@ -472,7 +560,7 @@ test('does not offer dashboard restore controls for externally ignored cards', a
 
   await page.locator('.display-menu summary').click();
   await page.getByLabel('显示已忽略的实体').check();
-  const card = page.locator('#devices .device-card', { hasText: '配置忽略开关' });
+  const card = page.locator('#ignored .device-card', { hasText: '配置忽略开关' });
   await expect(card).toBeVisible();
   await expect(card.getByRole('button')).toHaveCount(0);
 });
