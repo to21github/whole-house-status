@@ -94,6 +94,7 @@ async function dragRoomWithTouch(page, fromRoom, toRoom) {
       bubbles: true,
       pointerId,
       pointerType: 'touch',
+      isPrimary: true,
       clientX: sourceBox.x + sourceBox.width / 2,
       clientY: sourceBox.y + sourceBox.height / 2
     }));
@@ -156,6 +157,7 @@ test('a cancelled touch drag restores the draft without saving', async ({ page }
       bubbles: true,
       pointerId,
       pointerType: 'touch',
+      isPrimary: true,
       clientX: sourceBox.x + sourceBox.width / 2,
       clientY: sourceBox.y + sourceBox.height / 2
     }));
@@ -177,6 +179,79 @@ test('a cancelled touch drag restores the draft without saving', async ({ page }
   await expect(page.locator('.room-button')).toHaveText(['全部', '客厅', '厨房', '未分组']);
   await expect(page.locator('#rooms')).toHaveClass(/sorting/);
   await expect(page.getByRole('button', { name: '排序房间' })).toBeEnabled();
+});
+
+test('Alt+Arrow reorders the focused room and saves through the pending flow', async ({ page }) => {
+  await openDashboard(page);
+  await page.getByRole('button', { name: '排序房间' }).click();
+  const livingRoom = page.getByRole('button', { name: '客厅' });
+
+  await expect(livingRoom).toHaveAttribute('aria-description', '按 Alt 加方向键调整顺序');
+  await livingRoom.focus();
+  await page.keyboard.press('Alt+ArrowRight');
+
+  await expect.poll(() => sentMessages(page)).toEqual([
+    { type: 'set_room_order', rooms: ['全部', '厨房', '客厅', '未分组'] }
+  ]);
+  await expect(page.getByRole('button', { name: '排序房间' })).toBeDisabled();
+});
+
+test('a non-primary pointer cannot replace the active room drag', async ({ page }) => {
+  await openDashboard(page);
+  await page.getByRole('button', { name: '排序房间' }).click();
+
+  await page.evaluate(() => {
+    const livingRoom = [...document.querySelectorAll('.room-button')].find((button) => button.textContent === '客厅');
+    const kitchen = [...document.querySelectorAll('.room-button')].find((button) => button.textContent === '厨房');
+    const livingBox = livingRoom.getBoundingClientRect();
+    const kitchenBox = kitchen.getBoundingClientRect();
+    const primaryPointerId = 31;
+    const secondaryPointerId = 32;
+    livingRoom.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: primaryPointerId,
+      pointerType: 'touch',
+      isPrimary: true,
+      clientX: livingBox.x + livingBox.width / 2,
+      clientY: livingBox.y + livingBox.height / 2
+    }));
+    kitchen.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: secondaryPointerId,
+      pointerType: 'touch',
+      isPrimary: false,
+      clientX: kitchenBox.x + kitchenBox.width / 2,
+      clientY: kitchenBox.y + kitchenBox.height / 2
+    }));
+    window.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: secondaryPointerId,
+      pointerType: 'touch',
+      clientX: livingBox.x + livingBox.width / 2,
+      clientY: livingBox.y + livingBox.height / 2
+    }));
+    window.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: secondaryPointerId,
+      pointerType: 'touch'
+    }));
+    window.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: primaryPointerId,
+      pointerType: 'touch',
+      clientX: kitchenBox.x + kitchenBox.width / 2,
+      clientY: kitchenBox.y + kitchenBox.height / 2
+    }));
+    window.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: primaryPointerId,
+      pointerType: 'touch'
+    }));
+  });
+
+  await expect.poll(() => sentMessages(page)).toEqual([
+    { type: 'set_room_order', rooms: ['全部', '厨房', '客厅', '未分组'] }
+  ]);
 });
 
 test('sort mode fixes the all and ungrouped sentinels', async ({ page }) => {

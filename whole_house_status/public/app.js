@@ -183,6 +183,9 @@
       button.dataset.room = room;
       button.textContent = room;
       button.disabled = state.roomOrderPending || (state.roomOrderMode && isFixedRoom(room));
+      if (state.roomOrderMode && !isFixedRoom(room)) {
+        button.setAttribute('aria-description', '按 Alt 加方向键调整顺序');
+      }
       button.addEventListener('click', () => {
         if (state.roomOrderMode || state.roomOrderPending) {
           return;
@@ -191,6 +194,7 @@
         render();
       });
       button.addEventListener('pointerdown', startRoomOrderDrag);
+      button.addEventListener('keydown', moveRoomOrderWithKeyboard);
       fragment.append(button);
     }
     elements.rooms.replaceChildren(fragment);
@@ -200,7 +204,8 @@
   function startRoomOrderDrag(event) {
     const button = event.currentTarget;
     const room = button.dataset.room;
-    if (!state.roomOrderMode || state.roomOrderPending || isFixedRoom(room)) {
+    if (!state.roomOrderMode || state.roomOrderPending || isFixedRoom(room)
+      || state.roomOrderDrag || event.isPrimary === false) {
       return;
     }
     if (event.pointerType === 'mouse' && event.button !== 0) {
@@ -256,6 +261,27 @@
     return true;
   }
 
+  function moveDraftRoomByOffset(room, offset) {
+    const order = [...state.roomOrderDraft];
+    const movableIndexes = order.reduce((indexes, candidate, index) => {
+      if (!isFixedRoom(candidate)) {
+        indexes.push(index);
+      }
+      return indexes;
+    }, []);
+    const currentIndex = movableIndexes.findIndex((index) => order[index] === room);
+    const targetIndex = currentIndex + offset;
+    if (currentIndex === -1 || targetIndex < 0 || targetIndex >= movableIndexes.length) {
+      return false;
+    }
+
+    const currentRoomIndex = movableIndexes[currentIndex];
+    const targetRoomIndex = movableIndexes[targetIndex];
+    [order[currentRoomIndex], order[targetRoomIndex]] = [order[targetRoomIndex], order[currentRoomIndex]];
+    state.roomOrderDraft = order;
+    return true;
+  }
+
   function finishRoomOrder(success, error) {
     state.roomOrderMode = false;
     state.roomOrderDraft = null;
@@ -304,6 +330,27 @@
     state.roomOrderDrag = null;
     state.roomOrderDraft = drag.initialOrder;
     render();
+  }
+
+  function moveRoomOrderWithKeyboard(event) {
+    const room = event.currentTarget.dataset.room;
+    if (!state.roomOrderMode || state.roomOrderPending || isFixedRoom(room) || !event.altKey) {
+      return;
+    }
+
+    const offset = event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+      ? -1
+      : event.key === 'ArrowRight' || event.key === 'ArrowDown'
+        ? 1
+        : 0;
+    if (offset === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    if (moveDraftRoomByOffset(room, offset)) {
+      sendRoomOrder();
+    }
   }
 
   function moveRoomOrderDrag(event) {
