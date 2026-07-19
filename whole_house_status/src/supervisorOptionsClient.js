@@ -3,7 +3,8 @@ const http = require('node:http');
 class SupervisorOptionsClient {
   constructor({
     baseUrl = process.env.SUPERVISOR_URL || 'http://supervisor',
-    token = process.env.SUPERVISOR_TOKEN
+    token = process.env.SUPERVISOR_TOKEN,
+    requestTimeoutMs = 10_000
   } = {}) {
     if (typeof token !== 'string' || token.trim() === '') {
       throw new Error('Supervisor token is required');
@@ -11,6 +12,7 @@ class SupervisorOptionsClient {
 
     this.baseUrl = baseUrl;
     this.token = token;
+    this.requestTimeoutMs = requestTimeoutMs;
   }
 
   async setRoomOrder(order) {
@@ -39,27 +41,49 @@ class SupervisorOptionsClient {
     }
 
     return new Promise((resolve, reject) => {
-      const request = http.request(new URL(path, this.baseUrl), { method, headers }, (response) => {
+      let settled = false;
+      let request;
+      const settle = (callback, value) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        request.setTimeout(0);
+        callback(value);
+      };
+      const fail = (error) => settle(reject, error);
+      request = http.request(new URL(path, this.baseUrl), { method, headers }, (response) => {
         let responseBody = '';
         response.setEncoding('utf8');
+        response.once('aborted', () => {
+          fail(new Error('Supervisor options response was aborted'));
+        });
+        response.once('error', () => {
+          fail(new Error('Supervisor options response failed'));
+        });
         response.on('data', (chunk) => {
           responseBody += chunk;
         });
         response.on('end', () => {
           if (response.statusCode < 200 || response.statusCode >= 300) {
-            reject(new Error(`Supervisor options request failed: ${response.statusCode}`));
+            fail(new Error(`Supervisor options request failed: ${response.statusCode}`));
             return;
           }
 
           try {
-            resolve(JSON.parse(responseBody));
+            settle(resolve, JSON.parse(responseBody));
           } catch {
-            reject(new Error('Supervisor options response contained invalid JSON'));
+            fail(new Error('Supervisor options response contained invalid JSON'));
           }
         });
       });
 
-      request.on('error', reject);
+      request.once('error', fail);
+      request.setTimeout(this.requestTimeoutMs, () => {
+        fail(new Error('Supervisor options request timed out'));
+        request.destroy();
+      });
       if (payload !== null) {
         request.write(payload);
       }

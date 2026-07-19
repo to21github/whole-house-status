@@ -29,8 +29,22 @@ async function startServer(handler) {
 
   return {
     baseUrl: `http://127.0.0.1:${port}`,
-    close: () => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
+    close: () => new Promise((resolve, reject) => {
+      server.closeAllConnections();
+      server.close((error) => error ? reject(error) : resolve());
+    })
   };
+}
+
+function rejectIfUnsettled(promise, timeoutMs) {
+  let timeout;
+  const deadline = new Promise((resolve, reject) => {
+    timeout = setTimeout(() => {
+      reject(new Error('Supervisor request did not settle before the test timeout'));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timeout));
 }
 
 test('reads current options and persists only the updated room order', async (t) => {
@@ -141,5 +155,41 @@ test('rejects an invalid JSON success response with context', async (t) => {
   await assert.rejects(
     client.setRoomOrder(['全部', '客厅']),
     /Supervisor options response contained invalid JSON/
+  );
+});
+
+test('rejects an interrupted Supervisor response instead of waiting indefinitely', async (t) => {
+  const server = await startServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.flushHeaders();
+    res.write('{"rooms":');
+    setTimeout(() => res.destroy(), 10);
+  });
+  t.after(() => server.close());
+
+  const client = new SupervisorOptionsClient({
+    baseUrl: server.baseUrl,
+    token: 'test-token'
+  });
+
+  await assert.rejects(
+    rejectIfUnsettled(client.setRoomOrder(['全部', '客厅']), 200),
+    /Supervisor options response was aborted/
+  );
+});
+
+test('times out a Supervisor request that never responds', async (t) => {
+  const server = await startServer(() => {});
+  t.after(() => server.close());
+
+  const client = new SupervisorOptionsClient({
+    baseUrl: server.baseUrl,
+    token: 'test-token',
+    requestTimeoutMs: 20
+  });
+
+  await assert.rejects(
+    rejectIfUnsettled(client.setRoomOrder(['全部', '客厅']), 200),
+    (error) => error.message === 'Supervisor options request timed out'
   );
 });
