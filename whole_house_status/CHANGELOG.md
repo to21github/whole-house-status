@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.16
+
+- Separate ignored entity cards from active warnings and errors.
+
 ## 0.1.15
 
 - Align the mobile room filter grid with the statistics cards and keep the display icon beside the final room.
