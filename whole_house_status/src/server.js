@@ -2,12 +2,14 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const WebSocket = require('ws');
-const { loadOptions } = require('./options');
+const { loadOptions, normalizeOptions } = require('./options');
 const { AlertEngine } = require('./alertEngine');
 const { StateStore } = require('./stateStore');
 const { buildViewModel } = require('./viewModel');
 const { HomeAssistantClient } = require('./haClient');
 const { IgnoredEntityStore, isEntityId } = require('./ignoredEntityStore');
+const { SupervisorOptionsClient } = require('./supervisorOptionsClient');
+const { isValidDisplayedRoomOrder, buildPersistedRoomOrder } = require('./roomOrder');
 
 function resolvePort(value) {
   return Number(value === undefined || value === '' ? 8099 : value);
@@ -101,12 +103,22 @@ function isDashboardIgnoreCommand(command) {
   );
 }
 
+function isRoomOrderCommand(command, displayedRooms) {
+  return Boolean(
+    command
+    && typeof command === 'object'
+    && command.type === 'set_room_order'
+    && isValidDisplayedRoomOrder(command.rooms, displayedRooms)
+  );
+}
+
 function createServer({
   useMockData = process.env.USE_MOCK_DATA === 'true',
   token = process.env.SUPERVISOR_TOKEN,
   optionsPath,
   ignoredEntitiesPath = process.env.IGNORED_ENTITIES_PATH || '/data/ignored-entities.json',
   ignoredEntityStore,
+  roomOrderStore,
   publicDir = PUBLIC_DIR,
   logger = console,
   haClientFactory = () => new HomeAssistantClient(),
@@ -134,6 +146,7 @@ function createServer({
     filePath: ignoredEntitiesPath,
     logger
   });
+  const effectiveRoomOrderStore = roomOrderStore || (token ? new SupervisorOptionsClient({ token }) : null);
   let registries = { entity: [], device: [], area: [] };
   let haConnected = false;
   if (useMockData) {
@@ -165,6 +178,7 @@ function createServer({
   });
   const browserWss = new WebSocket.Server({ noServer: true });
   const clients = new Set();
+  let roomOrderSavePending = false;
 
   function send(client, payload) {
     if (client.readyState === WebSocket.OPEN) {
@@ -186,6 +200,63 @@ function createServer({
     } catch {
       return;
     }
+    const displayedRooms = snapshot().rooms;
+    if (command && typeof command === 'object' && command.type === 'set_room_order') {
+      if (!isRoomOrderCommand(command, displayedRooms)) {
+        send(client, {
+          type: 'room_order_result',
+          rooms: displayedRooms,
+          error: 'Invalid room order'
+        });
+        return;
+      }
+
+      if (!effectiveRoomOrderStore) {
+        send(client, {
+          type: 'room_order_result',
+          rooms: displayedRooms,
+          error: 'Room order persistence is unavailable'
+        });
+        return;
+      }
+
+      if (roomOrderSavePending) {
+        send(client, {
+          type: 'room_order_result',
+          rooms: displayedRooms,
+          error: 'A room order update is already in progress'
+        });
+        return;
+      }
+
+      roomOrderSavePending = true;
+      try {
+        const persistedOrder = buildPersistedRoomOrder(command.rooms, options.rooms.order);
+        await effectiveRoomOrderStore.setRoomOrder(persistedOrder);
+        options = normalizeOptions({
+          ...options,
+          rooms: {
+            ...options.rooms,
+            order: persistedOrder
+          }
+        });
+        broadcast();
+        send(client, {
+          type: 'room_order_result',
+          rooms: snapshot().rooms
+        });
+      } catch (error) {
+        send(client, {
+          type: 'room_order_result',
+          rooms: displayedRooms,
+          error: error && error.message ? error.message : 'Unable to persist room order'
+        });
+      } finally {
+        roomOrderSavePending = false;
+      }
+      return;
+    }
+
     if (!isDashboardIgnoreCommand(command)) {
       return;
     }
@@ -350,5 +421,6 @@ module.exports = {
   resolvePort,
   safeFilePath,
   isTrustedProxyAddress,
-  isIngressRequestAllowed
+  isIngressRequestAllowed,
+  isRoomOrderCommand
 };
