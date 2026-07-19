@@ -208,7 +208,11 @@
     }
 
     event.preventDefault();
-    state.roomOrderDrag = { pointerId: event.pointerId, room };
+    state.roomOrderDrag = {
+      pointerId: event.pointerId,
+      room,
+      initialOrder: [...state.roomOrderDraft]
+    };
     button.classList.add('dragging');
     try {
       button.setPointerCapture(event.pointerId);
@@ -288,6 +292,17 @@
       sendRoomOrder();
       return;
     }
+    render();
+  }
+
+  function cancelRoomOrderDrag(event) {
+    const drag = state.roomOrderDrag;
+    if (!drag || drag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    state.roomOrderDrag = null;
+    state.roomOrderDraft = drag.initialOrder;
     render();
   }
 
@@ -419,7 +434,7 @@
   elements.roomOrder.addEventListener('click', toggleRoomOrder);
   window.addEventListener('pointermove', moveRoomOrderDrag);
   window.addEventListener('pointerup', endRoomOrderDrag);
-  window.addEventListener('pointercancel', endRoomOrderDrag);
+  window.addEventListener('pointercancel', cancelRoomOrderDrag);
 
   function scheduleReconnect() {
     if (state.reconnectTimer !== null) {

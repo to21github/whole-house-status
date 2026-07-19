@@ -142,6 +142,43 @@ test('touch Pointer Events send the complete reordered room list', async ({ page
   ]);
 });
 
+test('a cancelled touch drag restores the draft without saving', async ({ page }) => {
+  await openDashboard(page);
+  await page.getByRole('button', { name: '排序房间' }).click();
+
+  await page.evaluate(() => {
+    const source = [...document.querySelectorAll('.room-button')].find((button) => button.textContent === '客厅');
+    const target = [...document.querySelectorAll('.room-button')].find((button) => button.textContent === '厨房');
+    const sourceBox = source.getBoundingClientRect();
+    const targetBox = target.getBoundingClientRect();
+    const pointerId = 22;
+    source.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId,
+      pointerType: 'touch',
+      clientX: sourceBox.x + sourceBox.width / 2,
+      clientY: sourceBox.y + sourceBox.height / 2
+    }));
+    window.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId,
+      pointerType: 'touch',
+      clientX: targetBox.x + targetBox.width / 2,
+      clientY: targetBox.y + targetBox.height / 2
+    }));
+    window.dispatchEvent(new PointerEvent('pointercancel', {
+      bubbles: true,
+      pointerId,
+      pointerType: 'touch'
+    }));
+  });
+
+  await expect.poll(() => sentMessages(page)).toEqual([]);
+  await expect(page.locator('.room-button')).toHaveText(['全部', '客厅', '厨房', '未分组']);
+  await expect(page.locator('#rooms')).toHaveClass(/sorting/);
+  await expect(page.getByRole('button', { name: '排序房间' })).toBeEnabled();
+});
+
 test('sort mode fixes the all and ungrouped sentinels', async ({ page }) => {
   await openDashboard(page);
   await page.getByRole('button', { name: '排序房间' }).click();
