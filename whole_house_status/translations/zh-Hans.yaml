@@ -1,0 +1,75 @@
+---
+configuration:
+  display:
+    name: 显示设置
+    description: 控制全屋设备状态面板的显示方式。
+    fields:
+      title:
+        name: 面板标题
+        description: 显示在全屋设备状态面板顶部的标题。
+      default_room:
+        name: 默认房间
+        description: 打开面板时默认选中的房间。
+      show_entity_id:
+        name: 显示实体 ID
+        description: 在设备卡片中显示 Home Assistant 实体 ID。
+  entities:
+    name: 实体筛选
+    description: 设置哪些 Home Assistant 实体显示在面板中。
+    fields:
+      include_domains:
+        name: 包含的实体类型
+        description: 要纳入面板的 Home Assistant 实体域。
+      exclude_entities:
+        name: 排除的实体
+        description: 不显示在面板中的 Home Assistant 实体 ID。
+  rooms:
+    name: 房间设置
+    description: 设置设备的房间归属与房间显示顺序。
+    fields:
+      overrides:
+        name: 房间覆盖规则
+        description: 为指定实体手动设置房间，优先于 Home Assistant Area。
+        fields:
+          entity_id:
+            name: 实体 ID
+            description: 要覆盖房间归属的 Home Assistant 实体 ID。
+          room:
+            name: 房间
+            description: 要分配给该实体的房间名称。
+      order:
+        name: 房间排序
+        description: 面板中房间筛选器的显示顺序。
+  alerts:
+    name: 告警规则
+    description: 设置设备开启时长和高功率告警规则。
+    fields:
+      default_on_duration_minutes:
+        name: 默认开启时长阈值（分钟）
+        description: 未单独设置规则的活动设备达到此时长后显示为告警。
+      high_power_rules:
+        name: 高功率告警规则
+        description: 为指定实体设置持续高功率告警。
+        fields:
+          entity_id:
+            name: 实体 ID
+            description: 要监控高功率状态的开关或设备实体 ID。
+          power_sensor:
+            name: 功率传感器
+            description: 用于读取功率值的 Home Assistant 传感器实体 ID。
+          threshold_w:
+            name: 功率阈值（W）
+            description: 功率超过此阈值时开始计算告警持续时间。
+          duration_minutes:
+            name: 持续时间（分钟）
+            description: 功率持续超过阈值多久后显示为告警。
+      on_duration_rules:
+        name: 开启时长告警规则
+        description: 为指定实体设置开启时长告警。
+        fields:
+          entity_id:
+            name: 实体 ID
+            description: 要监控开启时长的 Home Assistant 实体 ID。
+          duration_minutes:
+            name: 持续时间（分钟）
+            description: 实体保持活动多久后显示为告警。

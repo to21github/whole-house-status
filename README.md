@@ -21,11 +21,10 @@ USE_MOCK_DATA=true PORT=8099 npm start
 
 Open [http://127.0.0.1:8099/](http://127.0.0.1:8099/).
 
-## Verification
+## Build
 
 ```bash
 cd whole_house_status
-npm run verify
 docker build -t whole-house-status-addon:local .
 ```
 

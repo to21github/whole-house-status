@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.17
+
+- Add Simplified Chinese labels and descriptions for Add-on configuration fields.
+- Simplify the source package by removing development plans and test tooling.
+
 ## 0.1.16
 
 - Separate ignored entity cards from active warnings and errors.
