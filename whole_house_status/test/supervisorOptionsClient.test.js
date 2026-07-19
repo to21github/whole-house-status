@@ -117,6 +117,10 @@ test('rejects a non-2xx Supervisor options response', async (t) => {
 
 test('requires a Supervisor token', () => {
   assert.throws(
+    () => new SupervisorOptionsClient({ baseUrl: 'http://127.0.0.1:1' }),
+    /Supervisor token is required/
+  );
+  assert.throws(
     () => new SupervisorOptionsClient({ token: '' }),
     /Supervisor token is required/
   );
