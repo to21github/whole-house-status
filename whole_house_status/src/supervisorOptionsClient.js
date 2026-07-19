@@ -18,7 +18,14 @@ class SupervisorOptionsClient {
   }
 
   async setRoomOrder(order) {
-    const currentOptions = await this.request('GET', '/addons/self/options/config');
+    const response = await this.request('GET', '/addons/self/options/config');
+    const currentOptions = response && typeof response.data === 'object' && !Array.isArray(response.data)
+      ? response.data
+      : null;
+    if (!currentOptions) {
+      throw new Error('Supervisor options response did not contain configuration data');
+    }
+
     const options = {
       ...currentOptions,
       rooms: {

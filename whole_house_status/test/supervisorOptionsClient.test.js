@@ -53,6 +53,10 @@ test('reads current options and persists only the updated room order', async (t)
     display: { title: '全屋设备状态' },
     rooms: { overrides: [], order: ['全部', '客厅', '门口'] }
   };
+  const supervisorResponse = {
+    result: 'ok',
+    data: currentOptions
+  };
   const requests = [];
   const server = await startServer(async (req, res) => {
     requests.push({
@@ -65,7 +69,7 @@ test('reads current options and persists only the updated room order', async (t)
 
     if (req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(currentOptions));
+      res.end(JSON.stringify(supervisorResponse));
       return;
     }
 
@@ -110,7 +114,10 @@ test('rejects a non-2xx Supervisor options response', async (t) => {
   const server = await startServer((req, res) => {
     if (req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ rooms: { overrides: [], order: ['全部', '客厅'] } }));
+      res.end(JSON.stringify({
+        result: 'ok',
+        data: { rooms: { overrides: [], order: ['全部', '客厅'] } }
+      }));
       return;
     }
 
@@ -127,6 +134,24 @@ test('rejects a non-2xx Supervisor options response', async (t) => {
   await assert.rejects(
     client.setRoomOrder(['全部', '客厅']),
     /Supervisor options request failed: 400/
+  );
+});
+
+test('rejects a Supervisor options response without configuration data', async (t) => {
+  const server = await startServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ result: 'ok' }));
+  });
+  t.after(() => server.close());
+
+  const client = new SupervisorOptionsClient({
+    baseUrl: server.baseUrl,
+    token: 'test-token'
+  });
+
+  await assert.rejects(
+    client.setRoomOrder(['全部', '客厅']),
+    /Supervisor options response did not contain configuration data/
   );
 });
 
