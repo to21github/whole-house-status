@@ -8,6 +8,14 @@ const WebSocket = require('ws');
 
 const { createServer, isRoomOrderCommand } = require('../src/server');
 
+test('declares Supervisor API access for persisted room ordering', async () => {
+  const configPath = path.join(__dirname, '..', 'config.yaml');
+  const config = await fs.readFile(configPath, 'utf8');
+
+  assert.match(config, /^version: "0\.1\.18"$/m);
+  assert.match(config, /homeassistant_api: true\nhassio_api: true/);
+});
+
 class FakeHomeAssistantClient extends EventEmitter {
   connect() {}
 

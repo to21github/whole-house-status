@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.18 - 2026-07-19
+
+- Add dashboard drag sorting for room filters and persist the resulting `rooms.order` through the Supervisor API.
+- Keep `全部` first and `未分组` last while sorting rooms at runtime.
+
 ## 0.1.17
 
 - Add Simplified Chinese labels and descriptions for Add-on configuration fields.

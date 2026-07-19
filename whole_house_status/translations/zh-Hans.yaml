@@ -39,7 +39,7 @@ configuration:
             description: 要分配给该实体的房间名称。
       order:
         name: 房间排序
-        description: 面板中房间筛选器的显示顺序。
+        description: 在面板中拖动房间筛选器可调整显示顺序，排序会保存到此字段。
   alerts:
     name: 告警规则
     description: 设置设备开启时长和高功率告警规则。

@@ -64,6 +64,10 @@ rooms:
       room: 门口
 ```
 
+### Runtime Room Sorting
+
+Select the sort control beside the dashboard room filters, then drag a room filter to its new position. The dashboard saves the resulting order to `rooms.order` through Home Assistant, so it remains in effect after a restart. `全部` is fixed as the first filter and `未分组` is fixed as the last filter; neither can be moved.
+
 Set the global on-duration warning threshold for active devices that do not have an explicit `on_duration_rules` entry:
 
 ```yaml
