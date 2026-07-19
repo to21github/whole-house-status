@@ -25,6 +25,11 @@
     showIgnored: loadShowIgnored(),
     pendingDashboardIgnoreChanges: new Map(),
     entityActionError: null,
+    roomOrderMode: false,
+    roomOrderDraft: null,
+    roomOrderPending: false,
+    roomOrderError: null,
+    roomOrderDrag: null,
     reconnectTimer: null
   };
   let socket = null;
@@ -36,6 +41,7 @@
     warning: document.getElementById('stat-warning'),
     error: document.getElementById('stat-error'),
     rooms: document.getElementById('rooms'),
+    roomOrder: document.getElementById('room-order'),
     showIgnored: document.getElementById('show-ignored'),
     connection: document.getElementById('connection'),
     ignored: document.getElementById('ignored'),
@@ -143,22 +149,171 @@
     return card;
   }
 
+  function isFixedRoom(room) {
+    return room === '全部' || room === '未分组';
+  }
+
+  function sameRooms(left, right) {
+    return left.length === right.length && left.every((room, index) => room === right[index]);
+  }
+
+  function renderRoomOrderControl() {
+    elements.roomOrder.disabled = state.roomOrderPending;
+    elements.roomOrder.setAttribute('aria-pressed', String(state.roomOrderMode));
+  }
+
   function renderRooms(rooms) {
+    const displayedRooms = state.roomOrderMode && state.roomOrderDraft
+      ? state.roomOrderDraft
+      : rooms;
     const fragment = document.createDocumentFragment();
-    for (const room of rooms) {
+    elements.rooms.classList.toggle('sorting', state.roomOrderMode);
+    for (const room of displayedRooms) {
       const button = document.createElement('button');
       const active = room === state.selectedRoom;
       button.type = 'button';
-      button.className = active ? 'active' : '';
+      button.className = [
+        'room-button',
+        active ? 'active' : '',
+        state.roomOrderMode && isFixedRoom(room) ? 'fixed' : '',
+        state.roomOrderMode && !isFixedRoom(room) ? 'movable' : '',
+        state.roomOrderDrag && state.roomOrderDrag.room === room ? 'dragging' : ''
+      ].filter(Boolean).join(' ');
       button.setAttribute('aria-pressed', String(active));
+      button.dataset.room = room;
       button.textContent = room;
+      button.disabled = state.roomOrderPending || (state.roomOrderMode && isFixedRoom(room));
       button.addEventListener('click', () => {
+        if (state.roomOrderMode || state.roomOrderPending) {
+          return;
+        }
         state.selectedRoom = room;
         render();
       });
+      button.addEventListener('pointerdown', startRoomOrderDrag);
       fragment.append(button);
     }
     elements.rooms.replaceChildren(fragment);
+    renderRoomOrderControl();
+  }
+
+  function startRoomOrderDrag(event) {
+    const button = event.currentTarget;
+    const room = button.dataset.room;
+    if (!state.roomOrderMode || state.roomOrderPending || isFixedRoom(room)) {
+      return;
+    }
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    state.roomOrderDrag = { pointerId: event.pointerId, room };
+    button.classList.add('dragging');
+    try {
+      button.setPointerCapture(event.pointerId);
+    } catch {
+      // Synthetic touch Pointer Events do not always have an active pointer capture target.
+    }
+  }
+
+  function movableRoomAtPosition(clientX, clientY) {
+    for (const button of elements.rooms.querySelectorAll('.room-button.movable')) {
+      const bounds = button.getBoundingClientRect();
+      if (clientX >= bounds.left && clientX <= bounds.right
+        && clientY >= bounds.top && clientY <= bounds.bottom) {
+        return button;
+      }
+    }
+    return null;
+  }
+
+  function moveDraftRoom(draggedRoom, targetButton, clientX, clientY) {
+    const order = [...state.roomOrderDraft];
+    const draggedIndex = order.indexOf(draggedRoom);
+    const targetRoom = targetButton.dataset.room;
+    if (draggedIndex === -1 || targetRoom === draggedRoom) {
+      return false;
+    }
+
+    const targetBounds = targetButton.getBoundingClientRect();
+    const horizontalDistance = Math.abs(clientX - (targetBounds.left + targetBounds.width / 2));
+    const verticalDistance = Math.abs(clientY - (targetBounds.top + targetBounds.height / 2));
+    const insertAfter = verticalDistance > horizontalDistance
+      ? clientY >= targetBounds.top + targetBounds.height / 2
+      : clientX >= targetBounds.left + targetBounds.width / 2;
+    order.splice(draggedIndex, 1);
+    const targetIndex = order.indexOf(targetRoom);
+    order.splice(targetIndex + (insertAfter ? 1 : 0), 0, draggedRoom);
+    if (sameRooms(order, state.roomOrderDraft)) {
+      return false;
+    }
+    state.roomOrderDraft = order;
+    return true;
+  }
+
+  function finishRoomOrder(success, error) {
+    state.roomOrderMode = false;
+    state.roomOrderDraft = null;
+    state.roomOrderPending = false;
+    state.roomOrderDrag = null;
+    state.roomOrderError = success ? null : error || '无法保存房间排序';
+    render();
+  }
+
+  function sendRoomOrder() {
+    const rooms = [...state.roomOrderDraft];
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      finishRoomOrder(false, 'HA WebSocket 未连接');
+      return;
+    }
+
+    state.roomOrderPending = true;
+    render();
+    try {
+      socket.send(JSON.stringify({ type: 'set_room_order', rooms }));
+    } catch {
+      finishRoomOrder(false, '无法发送排序请求');
+    }
+  }
+
+  function endRoomOrderDrag(event) {
+    const drag = state.roomOrderDrag;
+    if (!drag || drag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    state.roomOrderDrag = null;
+    if (state.roomOrderDraft && state.model && !sameRooms(state.roomOrderDraft, state.model.rooms)) {
+      sendRoomOrder();
+      return;
+    }
+    render();
+  }
+
+  function moveRoomOrderDrag(event) {
+    const drag = state.roomOrderDrag;
+    if (!drag || drag.pointerId !== event.pointerId || state.roomOrderPending) {
+      return;
+    }
+    const target = movableRoomAtPosition(event.clientX, event.clientY);
+    if (target && moveDraftRoom(drag.room, target, event.clientX, event.clientY)) {
+      render();
+    }
+  }
+
+  function toggleRoomOrder() {
+    if (state.roomOrderPending || !state.model) {
+      return;
+    }
+    if (state.roomOrderMode) {
+      finishRoomOrder(true);
+      return;
+    }
+    state.roomOrderMode = true;
+    state.roomOrderDraft = [...state.model.rooms];
+    state.roomOrderError = null;
+    render();
   }
 
   function renderConnection(connection) {
@@ -171,6 +326,9 @@
     }
     if (state.entityActionError) {
       notices.push(`实体操作失败：${state.entityActionError}`);
+    }
+    if (state.roomOrderError) {
+      notices.push(`房间排序失败：${state.roomOrderError}`);
     }
     elements.connection.hidden = notices.length === 0;
     elements.connection.textContent = notices.join('\n');
@@ -258,6 +416,10 @@
     persistShowIgnored(state.showIgnored);
     render();
   });
+  elements.roomOrder.addEventListener('click', toggleRoomOrder);
+  window.addEventListener('pointermove', moveRoomOrderDrag);
+  window.addEventListener('pointerup', endRoomOrderDrag);
+  window.addEventListener('pointercancel', endRoomOrderDrag);
 
   function scheduleReconnect() {
     if (state.reconnectTimer !== null) {
@@ -296,6 +458,12 @@
         render();
         return;
       }
+      if (model && model.type === 'room_order_result') {
+        if (state.roomOrderPending) {
+          finishRoomOrder(!model.error && model.success !== false, model.error);
+        }
+        return;
+      }
       if (!isViewModel(model)) {
         return;
       }
@@ -320,6 +488,9 @@
     client.addEventListener('close', () => {
       if (socket === client) {
         socket = null;
+        if (state.roomOrderPending) {
+          finishRoomOrder(false, 'HA WebSocket 已断开');
+        }
         scheduleReconnect();
       }
     });

@@ -145,6 +145,73 @@ button {
   color: #222;
 }
 
+.room-order {
+  display: flex;
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  min-height: 42px;
+  flex: 0 0 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.room-order:hover,
+.room-order:focus-visible,
+.room-order[aria-pressed='true'] {
+  border-color: var(--muted);
+}
+
+.room-order:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.room-order-icon {
+  display: flex;
+  width: 18px;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.room-order-icon i {
+  display: block;
+  height: 2px;
+  background: currentColor;
+}
+
+.room-order-icon i:nth-child(2) {
+  width: 72%;
+  align-self: flex-end;
+}
+
+.room-order-icon i:nth-child(3) {
+  width: 44%;
+  align-self: flex-start;
+}
+
+.rooms.sorting .room-button.movable {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.rooms.sorting .room-button.fixed {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.rooms.sorting .room-button.dragging {
+  cursor: grabbing;
+  opacity: 0.55;
+}
+
 .display-menu {
   position: relative;
   flex: 0 0 auto;
@@ -445,6 +512,11 @@ button {
   .display-menu {
     align-self: start;
     order: 2;
+  }
+
+  .room-order {
+    align-self: start;
+    order: 1;
   }
 
   .show-ignored-option {
