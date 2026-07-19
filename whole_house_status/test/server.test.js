@@ -269,6 +269,68 @@ test('reports a persistence failure without changing the current room model', as
   assert.match(result.error, /Supervisor unavailable/);
 });
 
+test('returns the latest rooms when a pending room-order save rejects', async (t) => {
+  let rejectSave;
+  let signalSaveStarted;
+  const saveStarted = new Promise((resolve) => {
+    signalSaveStarted = resolve;
+  });
+  const optionsPath = await createOptionsPath(t);
+  const { app, haClient, url } = await startApp({
+    optionsPath,
+    roomOrderStore: {
+      async setRoomOrder() {
+        signalSaveStarted();
+        await new Promise((resolve, reject) => {
+          rejectSave = reject;
+        });
+      }
+    }
+  });
+  t.after(() => stopApp(app));
+  seedRooms(haClient);
+
+  const browser = await openBrowserSocket(url);
+  t.after(() => browser.socket.terminate());
+  const initialModel = await browser.inbox.next();
+  browser.socket.send(JSON.stringify({
+    type: 'set_room_order',
+    rooms: ['全部', '厨房', '客厅', '未分组']
+  }));
+  await withinTimeout(saveStarted, 1_000, 'Timed out waiting for the room-order save');
+
+  haClient.emit('registries', {
+    entity: [
+      { entity_id: 'switch.living_room', area_id: 'living-room' },
+      { entity_id: 'switch.kitchen', area_id: 'kitchen' },
+      { entity_id: 'switch.study', area_id: 'study' }
+    ],
+    device: [],
+    area: [
+      { area_id: 'living-room', name: '客厅' },
+      { area_id: 'kitchen', name: '厨房' },
+      { area_id: 'study', name: '书房' }
+    ]
+  });
+  haClient.emit('states', [
+    { entity_id: 'switch.living_room', state: 'off', attributes: { friendly_name: '客厅灯' } },
+    { entity_id: 'switch.kitchen', state: 'on', attributes: { friendly_name: '厨房灯' } },
+    { entity_id: 'switch.unassigned', state: 'off', attributes: { friendly_name: '未分组设备' } },
+    { entity_id: 'switch.study', state: 'off', attributes: { friendly_name: '书房灯' } }
+  ]);
+
+  const registryModel = await browser.inbox.next();
+  const latestModel = await browser.inbox.next();
+  assert.deepEqual(registryModel.rooms, initialModel.rooms);
+  assert.deepEqual(latestModel.rooms, ['全部', '客厅', '厨房', '书房', '未分组']);
+
+  rejectSave(new Error('Supervisor unavailable'));
+  const result = await browser.inbox.next();
+  assert.equal(result.type, 'room_order_result');
+  assert.deepEqual(result.rooms, latestModel.rooms);
+  assert.match(result.error, /Supervisor unavailable/);
+});
+
 test('reports an error when room-order persistence is unavailable', async (t) => {
   const optionsPath = await createOptionsPath(t);
   const { app, haClient, url } = await startApp({ optionsPath });

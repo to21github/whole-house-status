@@ -250,7 +250,7 @@ function createServer({
       } catch (error) {
         send(client, {
           type: 'room_order_result',
-          rooms: displayedRooms,
+          rooms: snapshot().rooms,
           error: error && error.message ? error.message : 'Unable to persist room order'
         });
       } finally {
