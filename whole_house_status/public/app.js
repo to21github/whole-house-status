@@ -114,6 +114,9 @@
     elements.showIgnoredOption.style.removeProperty('top');
     elements.showIgnoredOption.style.removeProperty('right');
     elements.showIgnoredOption.style.removeProperty('left');
+    elements.showIgnoredOption.style.removeProperty('max-width');
+    elements.showIgnoredOption.style.removeProperty('max-height');
+    elements.showIgnoredOption.style.removeProperty('overflow-y');
   }
 
   function positionDisplayMenu() {
@@ -122,16 +125,21 @@
     }
 
     const option = elements.showIgnoredOption;
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
     option.style.position = 'fixed';
     option.style.top = '0px';
     option.style.right = 'auto';
     option.style.left = '0px';
+    option.style.maxWidth = `${Math.max(0, viewportWidth - DISPLAY_MENU_VIEWPORT_PADDING * 2)}px`;
+    option.style.maxHeight = `${Math.max(0, viewportHeight - DISPLAY_MENU_VIEWPORT_PADDING * 2)}px`;
+    option.style.overflowY = 'auto';
 
     const triggerBounds = elements.displayMenuTrigger.getBoundingClientRect();
     const optionBounds = option.getBoundingClientRect();
     const maximumLeft = Math.max(
       DISPLAY_MENU_VIEWPORT_PADDING,
-      window.innerWidth - optionBounds.width - DISPLAY_MENU_VIEWPORT_PADDING
+      viewportWidth - optionBounds.width - DISPLAY_MENU_VIEWPORT_PADDING
     );
     const left = Math.min(
       Math.max(triggerBounds.left, DISPLAY_MENU_VIEWPORT_PADDING),
@@ -139,7 +147,7 @@
     );
     const below = triggerBounds.bottom + DISPLAY_MENU_OFFSET;
     const above = triggerBounds.top - optionBounds.height - DISPLAY_MENU_OFFSET;
-    const top = below + optionBounds.height <= window.innerHeight - DISPLAY_MENU_VIEWPORT_PADDING
+    const top = below + optionBounds.height <= viewportHeight - DISPLAY_MENU_VIEWPORT_PADDING
       ? below
       : Math.max(DISPLAY_MENU_VIEWPORT_PADDING, above);
 

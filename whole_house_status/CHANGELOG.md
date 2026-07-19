@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.22 - 2026-07-19
+
+- Use the document's usable viewport for display-menu placement so desktop scrollbars cannot obscure it.
+- Keep the display-menu frame and label within the available viewport, including narrow or short screens.
+
 ## 0.1.21 - 2026-07-19
 
 - Position the display menu within the viewport automatically, including when the filter controls are at an edge or the viewport is short.

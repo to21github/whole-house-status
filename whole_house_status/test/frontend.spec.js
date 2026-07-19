@@ -123,11 +123,13 @@ async function displayMenuFitsViewport(page) {
   return page.locator('.show-ignored-option').evaluate((element) => {
     const bounds = element.getBoundingClientRect();
     const padding = 12;
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
     return (
       bounds.left >= padding
-      && bounds.right <= window.innerWidth - padding
+      && bounds.right <= viewportWidth - padding
       && bounds.top >= padding
-      && bounds.bottom <= window.innerHeight - padding
+      && bounds.bottom <= viewportHeight - padding
     );
   });
 }
@@ -359,6 +361,20 @@ test('mobile display menu adapts when controls are at the left edge', async ({ p
 test('mobile display menu opens above controls when the viewport is short', async ({ page }) => {
   await page.setViewportSize({ width: 353, height: 400 });
   await openDashboard(page, model({ rooms: ['全部', '未分组'] }));
+
+  await page.locator('.display-menu summary').click();
+  await expect.poll(() => displayMenuFitsViewport(page)).toBe(true);
+});
+
+test('desktop display menu respects the usable viewport beside a scrollbar', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openDashboard(page);
+  await page.evaluate(() => {
+    Object.defineProperty(document.documentElement, 'clientWidth', {
+      configurable: true,
+      value: window.innerWidth - 15
+    });
+  });
 
   await page.locator('.display-menu summary').click();
   await expect.poll(() => displayMenuFitsViewport(page)).toBe(true);
