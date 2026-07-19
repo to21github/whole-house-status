@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.21 - 2026-07-19
+
+- Position the display menu within the viewport automatically, including when the filter controls are at an edge or the viewport is short.
+
 ## 0.1.20 - 2026-07-19
 
 - Keep mobile room sort and display controls together, and prevent the display menu from extending beyond the viewport.

@@ -2,6 +2,8 @@
   'use strict';
 
   const SHOW_IGNORED_STORAGE_KEY = 'whole-house-status-show-ignored';
+  const DISPLAY_MENU_VIEWPORT_PADDING = 12;
+  const DISPLAY_MENU_OFFSET = 8;
 
   function loadShowIgnored() {
     try {
@@ -42,6 +44,9 @@
     error: document.getElementById('stat-error'),
     rooms: document.getElementById('rooms'),
     roomOrder: document.getElementById('room-order'),
+    displayMenu: document.querySelector('.display-menu'),
+    displayMenuTrigger: document.querySelector('.display-menu summary'),
+    showIgnoredOption: document.querySelector('.show-ignored-option'),
     showIgnored: document.getElementById('show-ignored'),
     connection: document.getElementById('connection'),
     ignored: document.getElementById('ignored'),
@@ -102,6 +107,44 @@
     }
     element.textContent = text || '';
     return element;
+  }
+
+  function clearDisplayMenuPosition() {
+    elements.showIgnoredOption.style.removeProperty('position');
+    elements.showIgnoredOption.style.removeProperty('top');
+    elements.showIgnoredOption.style.removeProperty('right');
+    elements.showIgnoredOption.style.removeProperty('left');
+  }
+
+  function positionDisplayMenu() {
+    if (!elements.displayMenu.open) {
+      return;
+    }
+
+    const option = elements.showIgnoredOption;
+    option.style.position = 'fixed';
+    option.style.top = '0px';
+    option.style.right = 'auto';
+    option.style.left = '0px';
+
+    const triggerBounds = elements.displayMenuTrigger.getBoundingClientRect();
+    const optionBounds = option.getBoundingClientRect();
+    const maximumLeft = Math.max(
+      DISPLAY_MENU_VIEWPORT_PADDING,
+      window.innerWidth - optionBounds.width - DISPLAY_MENU_VIEWPORT_PADDING
+    );
+    const left = Math.min(
+      Math.max(triggerBounds.left, DISPLAY_MENU_VIEWPORT_PADDING),
+      maximumLeft
+    );
+    const below = triggerBounds.bottom + DISPLAY_MENU_OFFSET;
+    const above = triggerBounds.top - optionBounds.height - DISPLAY_MENU_OFFSET;
+    const top = below + optionBounds.height <= window.innerHeight - DISPLAY_MENU_VIEWPORT_PADDING
+      ? below
+      : Math.max(DISPLAY_MENU_VIEWPORT_PADDING, above);
+
+    option.style.left = `${Math.round(left)}px`;
+    option.style.top = `${Math.round(top)}px`;
   }
 
   function effectiveIgnored(device) {
@@ -479,6 +522,18 @@
     render();
   });
   elements.roomOrder.addEventListener('click', toggleRoomOrder);
+  elements.displayMenuTrigger.addEventListener('click', () => {
+    window.requestAnimationFrame(positionDisplayMenu);
+  });
+  elements.displayMenu.addEventListener('toggle', () => {
+    if (elements.displayMenu.open) {
+      positionDisplayMenu();
+      return;
+    }
+    clearDisplayMenuPosition();
+  });
+  window.addEventListener('resize', positionDisplayMenu);
+  window.addEventListener('scroll', positionDisplayMenu, true);
   window.addEventListener('pointermove', moveRoomOrderDrag);
   window.addEventListener('pointerup', endRoomOrderDrag);
   window.addEventListener('pointercancel', cancelRoomOrderDrag);

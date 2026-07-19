@@ -12,7 +12,7 @@ test('declares Supervisor API access for persisted room ordering', async () => {
   const configPath = path.join(__dirname, '..', 'config.yaml');
   const config = await fs.readFile(configPath, 'utf8');
 
-  assert.match(config, /^version: "0\.1\.20"$/m);
+  assert.match(config, /^version: "0\.1\.21"$/m);
   assert.match(config, /homeassistant_api: true\nhassio_api: true/);
 });
 

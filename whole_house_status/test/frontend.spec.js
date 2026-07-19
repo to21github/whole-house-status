@@ -119,6 +119,19 @@ async function sentMessages(page) {
   return page.evaluate(() => window.__socketMessages || []);
 }
 
+async function displayMenuFitsViewport(page) {
+  return page.locator('.show-ignored-option').evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    const padding = 12;
+    return (
+      bounds.left >= padding
+      && bounds.right <= window.innerWidth - padding
+      && bounds.top >= padding
+      && bounds.bottom <= window.innerHeight - padding
+    );
+  });
+}
+
 const mobileRooms = ['全部', '门口', '餐桌', '厨房', '客厅', '卫生间', '主卧', '次卧', '儿童房', '未分组'];
 
 test('mouse drag sends the complete reordered room list and disables controls while pending', async ({ page }) => {
@@ -330,11 +343,25 @@ test('mobile display menu remains within the viewport', async ({ page }) => {
   await openDashboard(page, model({ rooms: mobileRooms }));
 
   await page.locator('.display-menu summary').click();
-  const menuBox = await page.locator('.show-ignored-option').boundingBox();
-
-  expect(menuBox.x).toBeGreaterThanOrEqual(0);
-  expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(353);
+  await expect.poll(() => displayMenuFitsViewport(page)).toBe(true);
   await expect(page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).resolves.toBe(true);
+});
+
+test('mobile display menu adapts when controls are at the left edge', async ({ page }) => {
+  await page.setViewportSize({ width: 353, height: 760 });
+  await openDashboard(page, model({ rooms: ['全部', '未分组'] }));
+
+  await page.locator('.display-menu summary').click();
+  await expect.poll(() => displayMenuFitsViewport(page)).toBe(true);
+  await expect(page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).resolves.toBe(true);
+});
+
+test('mobile display menu opens above controls when the viewport is short', async ({ page }) => {
+  await page.setViewportSize({ width: 353, height: 400 });
+  await openDashboard(page, model({ rooms: ['全部', '未分组'] }));
+
+  await page.locator('.display-menu summary').click();
+  await expect.poll(() => displayMenuFitsViewport(page)).toBe(true);
 });
 
 test('a socket close while saving a room order restores filtering controls', async ({ page }) => {
