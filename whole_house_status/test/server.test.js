@@ -101,13 +101,20 @@ async function openBrowserSocket(url) {
   return { socket, inbox };
 }
 
-async function startApp({ roomOrderStore, useMockData = false, token, optionsPath } = {}) {
+async function startApp({
+  roomOrderStore,
+  useMockData = false,
+  token,
+  optionsPath,
+  supervisorOptionsClientFactory
+} = {}) {
   const haClient = new FakeHomeAssistantClient();
   const app = createServer({
     useMockData,
     token,
     roomOrderStore,
     optionsPath,
+    supervisorOptionsClientFactory,
     haClientFactory: () => haClient,
     ignoredEntityStore: createIgnoredEntityStore(),
     logger: createLogger(),
@@ -348,4 +355,36 @@ test('starts in mock mode without a Supervisor token or room-order store', async
   t.after(() => stopApp(app));
 
   assert.equal(app.server.listening, true);
+});
+
+test('constructs the injected Supervisor room-order store in non-mock mode', async (t) => {
+  let constructionCount = 0;
+  const { app } = await startApp({
+    token: 'test-token',
+    supervisorOptionsClientFactory({ token }) {
+      constructionCount += 1;
+      assert.equal(token, 'test-token');
+      return { setRoomOrder() {} };
+    }
+  });
+  t.after(() => stopApp(app));
+
+  assert.equal(app.server.listening, true);
+  assert.equal(constructionCount, 1);
+});
+
+test('does not construct a Supervisor room-order store in mock mode with a token', async (t) => {
+  let constructionCount = 0;
+  const { app } = await startApp({
+    useMockData: true,
+    token: 'test-token',
+    supervisorOptionsClientFactory() {
+      constructionCount += 1;
+      throw new Error('Mock mode must not construct a Supervisor room-order store');
+    }
+  });
+  t.after(() => stopApp(app));
+
+  assert.equal(app.server.listening, true);
+  assert.equal(constructionCount, 0);
 });

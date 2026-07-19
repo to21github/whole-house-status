@@ -122,6 +122,7 @@ function createServer({
   publicDir = PUBLIC_DIR,
   logger = console,
   haClientFactory = () => new HomeAssistantClient(),
+  supervisorOptionsClientFactory = (options) => new SupervisorOptionsClient(options),
   refreshIntervalMs = REFRESH_INTERVAL_MS
 } = {}) {
   let configError = null;
@@ -146,7 +147,8 @@ function createServer({
     filePath: ignoredEntitiesPath,
     logger
   });
-  const effectiveRoomOrderStore = roomOrderStore || (token ? new SupervisorOptionsClient({ token }) : null);
+  const effectiveRoomOrderStore = roomOrderStore
+    || (!useMockData && token ? supervisorOptionsClientFactory({ token }) : null);
   let registries = { entity: [], device: [], area: [] };
   let haConnected = false;
   if (useMockData) {
