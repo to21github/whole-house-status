@@ -14,6 +14,7 @@
 
 **Files:**
 - Modify: `whole_house_status/test/frontend.spec.js` by adding a test after `shows ignored entities only when the display option is enabled`.
+- Modify: `whole_house_status/test/frontend.spec.js` in the dashboard-ignore and externally-ignored tests to locate shown ignored cards in `#ignored`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -89,6 +90,34 @@ test('separates ignored cards from unignored alerts in the selected room', async
 Run: `cd whole_house_status && npx playwright test test/frontend.spec.js -g "separates ignored cards from unignored alerts"`
 
 Expected: FAIL because `#ignored` and `#ignored-divider` do not exist and ignored alert cards are currently rendered inside `#alerts`.
+
+- [ ] **Step 3: Update existing ignored-card location expectations**
+
+In `immediately hides and restores dashboard ignored cards without a Home Assistant command`, replace:
+
+```js
+  const ignoredCard = page.locator('#devices .device-card', { hasText: '可见开关' });
+```
+
+with:
+
+```js
+  const ignoredCard = page.locator('#ignored .device-card', { hasText: '可见开关' });
+```
+
+In `does not offer dashboard restore controls for externally ignored cards`, replace:
+
+```js
+  const card = page.locator('#devices .device-card', { hasText: '配置忽略开关' });
+```
+
+with:
+
+```js
+  const card = page.locator('#ignored .device-card', { hasText: '配置忽略开关' });
+```
+
+These assertions must fail before the implementation because `#ignored` does not yet exist.
 
 ### Task 2: Add the conditional ignored card container
 
