@@ -4,7 +4,8 @@ class SupervisorOptionsClient {
   constructor({
     baseUrl = process.env.SUPERVISOR_URL || 'http://supervisor',
     token = process.env.SUPERVISOR_TOKEN,
-    requestTimeoutMs = 10_000
+    requestTimeoutMs = 10_000,
+    requestFactory = http.request
   } = {}) {
     if (typeof token !== 'string' || token.trim() === '') {
       throw new Error('Supervisor token is required');
@@ -13,6 +14,7 @@ class SupervisorOptionsClient {
     this.baseUrl = baseUrl;
     this.token = token;
     this.requestTimeoutMs = requestTimeoutMs;
+    this.requestFactory = requestFactory;
   }
 
   async setRoomOrder(order) {
@@ -53,7 +55,7 @@ class SupervisorOptionsClient {
         callback(value);
       };
       const fail = (error) => settle(reject, error);
-      request = http.request(new URL(path, this.baseUrl), { method, headers }, (response) => {
+      request = this.requestFactory(new URL(path, this.baseUrl), { method, headers }, (response) => {
         let responseBody = '';
         response.setEncoding('utf8');
         response.once('aborted', () => {

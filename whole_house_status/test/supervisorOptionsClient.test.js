@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const EventEmitter = require('node:events');
 const http = require('node:http');
 const test = require('node:test');
 
@@ -192,4 +193,46 @@ test('times out a Supervisor request that never responds', async (t) => {
     rejectIfUnsettled(client.setRoomOrder(['全部', '客厅']), 200),
     (error) => error.message === 'Supervisor options request timed out'
   );
+});
+
+test('rejects a response stream error exactly once', async () => {
+  const response = new EventEmitter();
+  response.setEncoding = () => {};
+  let requestCount = 0;
+  let timeoutClearCount = 0;
+  const client = new SupervisorOptionsClient({
+    baseUrl: 'http://127.0.0.1:1',
+    token: 'test-token',
+    requestFactory(url, options, onResponse) {
+      requestCount += 1;
+      const request = new EventEmitter();
+      request.setTimeout = (timeoutMs) => {
+        if (timeoutMs === 0) {
+          timeoutClearCount += 1;
+        }
+      };
+      request.write = () => {};
+      request.destroy = () => {};
+      request.end = () => {
+        queueMicrotask(() => {
+          onResponse(response);
+          response.emit('error', new Error('Injected response failure'));
+          response.emit('aborted');
+        });
+      };
+      return request;
+    }
+  });
+  let rejectionCount = 0;
+  const operation = client.setRoomOrder(['全部', '客厅']).catch((error) => {
+    rejectionCount += 1;
+    throw error;
+  });
+
+  await assert.rejects(operation, /Supervisor options response failed/);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(rejectionCount, 1);
+  assert.equal(requestCount, 1);
+  assert.equal(timeoutClearCount, 1);
 });
