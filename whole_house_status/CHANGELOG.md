@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.20 - 2026-07-19
+
+- Keep mobile room sort and display controls together, and prevent the display menu from extending beyond the viewport.
+
 ## 0.1.19 - 2026-07-19
 
 - Fix runtime room-order saves by unwrapping the Supervisor options response before updating the add-on configuration.

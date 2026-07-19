@@ -119,6 +119,8 @@ async function sentMessages(page) {
   return page.evaluate(() => window.__socketMessages || []);
 }
 
+const mobileRooms = ['全部', '门口', '餐桌', '厨房', '客厅', '卫生间', '主卧', '次卧', '儿童房', '未分组'];
+
 test('mouse drag sends the complete reordered room list and disables controls while pending', async ({ page }) => {
   await openDashboard(page);
   await page.getByRole('button', { name: '排序房间' }).click();
@@ -308,6 +310,31 @@ test('a rejected room order restores the model and fits the mobile filter bar', 
   const lastRoom = await page.getByRole('button', { name: '未分组' }).boundingBox();
   const orderControl = await page.getByRole('button', { name: '排序房间' }).boundingBox();
   expect(orderControl.y).toBeGreaterThanOrEqual(lastRoom.y);
+});
+
+test('mobile room controls stay grouped after the final room button', async ({ page }) => {
+  await page.setViewportSize({ width: 353, height: 760 });
+  await openDashboard(page, model({ rooms: mobileRooms }));
+
+  const ungroupedBox = await page.getByRole('button', { name: '未分组' }).boundingBox();
+  const orderBox = await page.getByRole('button', { name: '排序房间' }).boundingBox();
+  const displayBox = await page.locator('.display-menu summary').boundingBox();
+
+  expect(orderBox.y).toBe(ungroupedBox.y);
+  expect(displayBox.y).toBe(orderBox.y);
+  expect(displayBox.x - (orderBox.x + orderBox.width)).toBeLessThanOrEqual(12);
+});
+
+test('mobile display menu remains within the viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 353, height: 760 });
+  await openDashboard(page, model({ rooms: mobileRooms }));
+
+  await page.locator('.display-menu summary').click();
+  const menuBox = await page.locator('.show-ignored-option').boundingBox();
+
+  expect(menuBox.x).toBeGreaterThanOrEqual(0);
+  expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(353);
+  await expect(page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).resolves.toBe(true);
 });
 
 test('a socket close while saving a room order restores filtering controls', async ({ page }) => {

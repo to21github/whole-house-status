@@ -118,6 +118,13 @@ button {
   gap: 12px;
 }
 
+.filter-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 12px;
+}
+
 .rooms button {
   width: 96px;
   min-height: 42px;
@@ -509,19 +516,16 @@ button {
     display: contents;
   }
 
-  .display-menu {
+  .filter-controls {
+    display: flex;
+    grid-column: span 2;
     align-self: start;
-    order: 2;
-  }
-
-  .room-order {
-    align-self: start;
-    order: 1;
+    gap: 10px;
   }
 
   .show-ignored-option {
-    right: auto;
-    left: 0;
+    right: 0;
+    left: auto;
     max-width: calc(100vw - 36px);
   }
 

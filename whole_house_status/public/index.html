@@ -32,19 +32,21 @@
 
       <div class="filter-bar">
         <nav id="rooms" class="rooms" aria-label="房间筛选"></nav>
-        <button id="room-order" class="room-order" type="button" aria-label="排序房间" title="排序房间">
-          <span class="room-order-icon" aria-hidden="true"><i></i><i></i><i></i></span>
-        </button>
-        <details class="display-menu">
-          <summary aria-label="显示" title="显示选项">
-            <span class="filter-icon" aria-hidden="true"><i></i><i></i><i></i></span>
-          </summary>
-          <label class="show-ignored-option">
-            <input id="show-ignored" type="checkbox">
-            <span class="checkbox-box" aria-hidden="true"></span>
-            <span>显示已忽略的实体</span>
-          </label>
-        </details>
+        <div class="filter-controls">
+          <button id="room-order" class="room-order" type="button" aria-label="排序房间" title="排序房间">
+            <span class="room-order-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+          </button>
+          <details class="display-menu">
+            <summary aria-label="显示" title="显示选项">
+              <span class="filter-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+            </summary>
+            <label class="show-ignored-option">
+              <input id="show-ignored" type="checkbox">
+              <span class="checkbox-box" aria-hidden="true"></span>
+              <span>显示已忽略的实体</span>
+            </label>
+          </details>
+        </div>
       </div>
       <div id="connection" class="connection" hidden></div>
       <hr class="divider">
