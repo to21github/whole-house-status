@@ -136,24 +136,36 @@ async function displayMenuFitsViewport(page) {
 
 const mobileRooms = ['全部', '门口', '餐桌', '厨房', '客厅', '卫生间', '主卧', '次卧', '儿童房', '未分组'];
 
-test('mouse drag sends the complete reordered room list and disables controls while pending', async ({ page }) => {
-  await openDashboard(page);
+test('multiple mouse drags stay in sort mode and save the final room order when manually closed', async ({ page }) => {
+  await openDashboard(page, model({ rooms: ['全部', '客厅', '厨房', '主卧', '未分组'] }));
   await page.getByRole('button', { name: '排序房间' }).click();
 
   await dragRoomWithMouse(page, '客厅', '厨房');
+  await expect(page.locator('.room-button')).toHaveText(['全部', '厨房', '客厅', '主卧', '未分组']);
+  await expect.poll(() => sentMessages(page)).toEqual([]);
+  await expect(page.locator('#rooms')).toHaveClass(/sorting/);
+
+  await dragRoomWithMouse(page, '客厅', '主卧');
+  await expect(page.locator('.room-button')).toHaveText(['全部', '厨房', '主卧', '客厅', '未分组']);
+  await expect.poll(() => sentMessages(page)).toEqual([]);
+
+  await page.getByRole('button', { name: '排序房间' }).click();
 
   await expect.poll(() => sentMessages(page)).toEqual([
-    { type: 'set_room_order', rooms: ['全部', '厨房', '客厅', '未分组'] }
+    { type: 'set_room_order', rooms: ['全部', '厨房', '主卧', '客厅', '未分组'] }
   ]);
   await expect(page.getByRole('button', { name: '全部' })).toBeDisabled();
   await expect(page.getByRole('button', { name: '排序房间' })).toBeDisabled();
 });
 
-test('touch Pointer Events send the complete reordered room list', async ({ page }) => {
+test('touch Pointer Events wait for the sort control to close before saving', async ({ page }) => {
   await openDashboard(page);
   await page.getByRole('button', { name: '排序房间' }).click();
 
   await dragRoomWithTouch(page, '客厅', '厨房');
+  await expect.poll(() => sentMessages(page)).toEqual([]);
+
+  await page.getByRole('button', { name: '排序房间' }).click();
 
   await expect.poll(() => sentMessages(page)).toEqual([
     { type: 'set_room_order', rooms: ['全部', '厨房', '客厅', '未分组'] }
@@ -198,17 +210,23 @@ test('a cancelled touch drag restores the draft without saving', async ({ page }
   await expect(page.getByRole('button', { name: '排序房间' })).toBeEnabled();
 });
 
-test('Alt+Arrow reorders the focused room and saves through the pending flow', async ({ page }) => {
-  await openDashboard(page);
+test('Alt+Arrow can move the focused room repeatedly before sort mode is manually closed', async ({ page }) => {
+  await openDashboard(page, model({ rooms: ['全部', '客厅', '厨房', '主卧', '未分组'] }));
   await page.getByRole('button', { name: '排序房间' }).click();
   const livingRoom = page.getByRole('button', { name: '客厅' });
 
   await expect(livingRoom).toHaveAttribute('aria-description', '按 Alt 加方向键调整顺序');
   await livingRoom.focus();
   await page.keyboard.press('Alt+ArrowRight');
+  await page.keyboard.press('Alt+ArrowRight');
+
+  await expect(page.locator('.room-button')).toHaveText(['全部', '厨房', '主卧', '客厅', '未分组']);
+  await expect.poll(() => sentMessages(page)).toEqual([]);
+
+  await page.getByRole('button', { name: '排序房间' }).click();
 
   await expect.poll(() => sentMessages(page)).toEqual([
-    { type: 'set_room_order', rooms: ['全部', '厨房', '客厅', '未分组'] }
+    { type: 'set_room_order', rooms: ['全部', '厨房', '主卧', '客厅', '未分组'] }
   ]);
   await expect(page.getByRole('button', { name: '排序房间' })).toBeDisabled();
 });
@@ -266,6 +284,8 @@ test('a non-primary pointer cannot replace the active room drag', async ({ page 
     }));
   });
 
+  await page.getByRole('button', { name: '排序房间' }).click();
+
   await expect.poll(() => sentMessages(page)).toEqual([
     { type: 'set_room_order', rooms: ['全部', '厨房', '客厅', '未分组'] }
   ]);
@@ -290,10 +310,95 @@ test('normal room clicks filter device cards', async ({ page }) => {
   await expect(page.locator('#devices')).not.toContainText('客厅开关');
 });
 
+test('hovering a room button changes its background without highlighting its border', async ({ page }) => {
+  await openDashboard(page);
+  const room = page.getByRole('button', { name: '厨房' });
+  const restingBorder = await room.evaluate((element) => getComputedStyle(element).borderTopColor);
+
+  await room.hover();
+
+  await expect(room).toHaveCSS('background-color', 'rgb(32, 32, 32)');
+  await expect(room).toHaveCSS('border-top-color', restingBorder);
+});
+
+test('hovering the active room button changes its background without retaining the selected border', async ({ page }) => {
+  await openDashboard(page);
+  const room = page.getByRole('button', { name: '全部' });
+
+  await room.hover();
+
+  await expect(room).toHaveCSS('background-color', 'rgb(32, 32, 32)');
+  await expect(room).toHaveCSS('border-top-color', 'rgb(52, 52, 52)');
+  await expect(room).toHaveCSS('color', 'rgb(214, 214, 214)');
+});
+
+test('a room update during sorting merges new rooms into the draft before saving', async ({ page }) => {
+  await openDashboard(page);
+  await page.getByRole('button', { name: '排序房间' }).click();
+  await dragRoomWithMouse(page, '客厅', '厨房');
+
+  await page.evaluate((response) => window.__mockSockets[0].receive(response), model({
+    rooms: ['全部', '客厅', '厨房', '主卧', '未分组']
+  }));
+
+  await expect(page.locator('.room-button')).toHaveText(['全部', '厨房', '客厅', '主卧', '未分组']);
+
+  await page.getByRole('button', { name: '排序房间' }).click();
+
+  await expect.poll(() => sentMessages(page)).toEqual([
+    { type: 'set_room_order', rooms: ['全部', '厨房', '客厅', '主卧', '未分组'] }
+  ]);
+});
+
+test('cancelling an active drag after a room update restores a current room draft', async ({ page }) => {
+  await openDashboard(page, model({ rooms: ['全部', '客厅', '厨房', '主卧', '未分组'] }));
+  await page.getByRole('button', { name: '排序房间' }).click();
+
+  await page.evaluate(() => {
+    const source = [...document.querySelectorAll('.room-button')].find((button) => button.textContent === '客厅');
+    const target = [...document.querySelectorAll('.room-button')].find((button) => button.textContent === '厨房');
+    const sourceBox = source.getBoundingClientRect();
+    const targetBox = target.getBoundingClientRect();
+    const pointerId = 23;
+    source.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId,
+      pointerType: 'touch',
+      isPrimary: true,
+      clientX: sourceBox.x + sourceBox.width / 2,
+      clientY: sourceBox.y + sourceBox.height / 2
+    }));
+    window.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId,
+      pointerType: 'touch',
+      clientX: targetBox.x + targetBox.width / 2,
+      clientY: targetBox.y + targetBox.height / 2
+    }));
+  });
+
+  await page.evaluate((response) => window.__mockSockets[0].receive(response), model({
+    rooms: ['全部', '客厅', '厨房', '未分组']
+  }));
+  await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointercancel', {
+    bubbles: true,
+    pointerId: 23,
+    pointerType: 'touch'
+  })));
+
+  await expect(page.locator('.room-button')).toHaveText(['全部', '客厅', '厨房', '未分组']);
+
+  await page.getByRole('button', { name: '排序房间' }).click();
+
+  await expect.poll(() => sentMessages(page)).toEqual([]);
+  await expect(page.locator('#rooms')).not.toHaveClass(/sorting/);
+});
+
 test('a successful room order exits sort mode before the next model', async ({ page }) => {
   await openDashboard(page);
   await page.getByRole('button', { name: '排序房间' }).click();
   await dragRoomWithMouse(page, '客厅', '厨房');
+  await page.getByRole('button', { name: '排序房间' }).click();
 
   await page.evaluate(() => window.__mockSockets[0].receive({
     type: 'room_order_result',
@@ -310,6 +415,7 @@ test('a rejected room order restores the model and fits the mobile filter bar', 
   await openDashboard(page);
   await page.getByRole('button', { name: '排序房间' }).click();
   await dragRoomWithMouse(page, '客厅', '厨房');
+  await page.getByRole('button', { name: '排序房间' }).click();
 
   await page.evaluate(() => window.__mockSockets[0].receive({
     type: 'room_order_result',
@@ -384,6 +490,7 @@ test('a socket close while saving a room order restores filtering controls', asy
   await openDashboard(page);
   await page.getByRole('button', { name: '排序房间' }).click();
   await dragRoomWithMouse(page, '客厅', '厨房');
+  await page.getByRole('button', { name: '排序房间' }).click();
 
   await page.evaluate(() => window.__mockSockets[0].close());
 

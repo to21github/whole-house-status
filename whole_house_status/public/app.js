@@ -208,6 +208,20 @@
     return left.length === right.length && left.every((room, index) => room === right[index]);
   }
 
+  function mergeRoomOrderDraft(draft, rooms) {
+    const roomSet = new Set(rooms);
+    const draftMovableRooms = draft.filter((room) => !isFixedRoom(room) && roomSet.has(room));
+    const addedMovableRooms = rooms.filter((room) => (
+      !isFixedRoom(room) && !draftMovableRooms.includes(room)
+    ));
+    return [
+      ...(rooms.includes('全部') ? ['全部'] : []),
+      ...draftMovableRooms,
+      ...addedMovableRooms,
+      ...(rooms.includes('未分组') ? ['未分组'] : [])
+    ];
+  }
+
   function renderRoomOrderControl() {
     elements.roomOrder.disabled = state.roomOrderPending;
     elements.roomOrder.setAttribute('aria-pressed', String(state.roomOrderMode));
@@ -365,10 +379,6 @@
     }
 
     state.roomOrderDrag = null;
-    if (state.roomOrderDraft && state.model && !sameRooms(state.roomOrderDraft, state.model.rooms)) {
-      sendRoomOrder();
-      return;
-    }
     render();
   }
 
@@ -379,7 +389,9 @@
     }
 
     state.roomOrderDrag = null;
-    state.roomOrderDraft = drag.initialOrder;
+    state.roomOrderDraft = state.model
+      ? mergeRoomOrderDraft(drag.initialOrder, state.model.rooms)
+      : drag.initialOrder;
     render();
   }
 
@@ -400,7 +412,10 @@
 
     event.preventDefault();
     if (moveDraftRoomByOffset(room, offset)) {
-      sendRoomOrder();
+      render();
+      const movedRoomButton = [...elements.rooms.querySelectorAll('.room-button')]
+        .find((button) => button.dataset.room === room);
+      movedRoomButton?.focus();
     }
   }
 
@@ -420,6 +435,10 @@
       return;
     }
     if (state.roomOrderMode) {
+      if (state.roomOrderDraft && !sameRooms(state.roomOrderDraft, state.model.rooms)) {
+        sendRoomOrder();
+        return;
+      }
       finishRoomOrder(true);
       return;
     }
@@ -599,6 +618,9 @@
         : '全部';
       const isFirstModel = state.model === null;
       state.model = model;
+      if (state.roomOrderMode && state.roomOrderDraft) {
+        state.roomOrderDraft = mergeRoomOrderDraft(state.roomOrderDraft, rooms);
+      }
       for (const [entityId, ignored] of state.pendingDashboardIgnoreChanges) {
         const device = [...model.alerts, ...model.devices].find((candidate) => candidate.entity_id === entityId);
         if (device && device.dashboard_ignored === ignored) {

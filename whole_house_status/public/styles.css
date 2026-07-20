@@ -141,7 +141,10 @@ button {
   cursor: pointer;
 }
 
-.rooms button:hover,
+.rooms button:hover {
+  background: #202020;
+}
+
 .rooms button:focus-visible {
   border-color: var(--muted);
 }
@@ -150,6 +153,12 @@ button {
   border-color: #d5d5d5;
   background: #d5d5d5;
   color: #222;
+}
+
+.rooms button.active:hover {
+  border-color: var(--border);
+  background: #202020;
+  color: var(--text);
 }
 
 .room-order {

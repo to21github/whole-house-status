@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.23 - 2026-07-20
+
+- Allow several room-order adjustments in one sorting session and save the final order when the sort control is closed.
+- Change room-filter hover feedback to a background color only, without a highlighted border.
+
 ## 0.1.22 - 2026-07-19
 
 - Use the document's usable viewport for display-menu placement so desktop scrollbars cannot obscure it.
