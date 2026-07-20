@@ -321,15 +321,30 @@ test('hovering a room button changes its background without highlighting its bor
   await expect(room).toHaveCSS('border-top-color', restingBorder);
 });
 
-test('hovering the active room button changes its background without retaining the selected border', async ({ page }) => {
+test('hovering the active room button preserves its selected appearance', async ({ page }) => {
   await openDashboard(page);
   const room = page.getByRole('button', { name: '全部' });
 
   await room.hover();
 
-  await expect(room).toHaveCSS('background-color', 'rgb(32, 32, 32)');
-  await expect(room).toHaveCSS('border-top-color', 'rgb(52, 52, 52)');
-  await expect(room).toHaveCSS('color', 'rgb(214, 214, 214)');
+  await expect(room).toHaveCSS('background-color', 'rgb(213, 213, 213)');
+  await expect(room).toHaveCSS('border-top-color', 'rgb(213, 213, 213)');
+  await expect(room).toHaveCSS('color', 'rgb(34, 34, 34)');
+});
+
+test('hovering either circular control changes only its background', async ({ page }) => {
+  await openDashboard(page);
+  const controls = [
+    page.getByRole('button', { name: '排序房间' }),
+    page.locator('.display-menu summary')
+  ];
+
+  for (const control of controls) {
+    const restingBorder = await control.evaluate((element) => getComputedStyle(element).borderTopColor);
+    await control.hover();
+    await expect(control).toHaveCSS('background-color', 'rgb(32, 32, 32)');
+    await expect(control).toHaveCSS('border-top-color', restingBorder);
+  }
 });
 
 test('a room update during sorting merges new rooms into the draft before saving', async ({ page }) => {

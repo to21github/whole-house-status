@@ -155,12 +155,6 @@ button {
   color: #222;
 }
 
-.rooms button.active:hover {
-  border-color: var(--border);
-  background: #202020;
-  color: var(--text);
-}
-
 .room-order {
   display: flex;
   width: 42px;
@@ -178,7 +172,10 @@ button {
   cursor: pointer;
 }
 
-.room-order:hover,
+.room-order:hover {
+  background: #202020;
+}
+
 .room-order:focus-visible,
 .room-order[aria-pressed='true'] {
   border-color: var(--muted);
@@ -255,7 +252,10 @@ button {
   display: none;
 }
 
-.display-menu summary:hover,
+.display-menu summary:hover {
+  background: #202020;
+}
+
 .display-menu summary:focus-visible,
 .display-menu[open] summary {
   border-color: var(--muted);

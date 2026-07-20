@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.24 - 2026-07-20
+
+- Keep the selected room's highlight while it is hovered.
+- Apply background-only hover feedback to the room-sort and display controls.
+
 ## 0.1.23 - 2026-07-20
 
 - Allow several room-order adjustments in one sorting session and save the final order when the sort control is closed.
