@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.25 - 2026-07-26
+
+- Refresh Home Assistant registries when device, entity, or area assignments change so room grouping updates without restarting the add-on.
+
 ## 0.1.24 - 2026-07-20
 
 - Keep the selected room's highlight while it is hovered.

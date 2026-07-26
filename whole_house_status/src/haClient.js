@@ -1,6 +1,13 @@
 const EventEmitter = require('node:events');
 const WebSocket = require('ws');
 
+const STATE_CHANGED_EVENT = 'state_changed';
+const REGISTRY_UPDATED_EVENTS = new Set([
+  'area_registry_updated',
+  'device_registry_updated',
+  'entity_registry_updated'
+]);
+
 class HomeAssistantClient extends EventEmitter {
   constructor({
     url = process.env.HA_WS_URL || 'ws://supervisor/core/websocket',
@@ -23,6 +30,7 @@ class HomeAssistantClient extends EventEmitter {
     this.closedByUser = false;
     this.reconnectTimer = null;
     this.initialStateSync = null;
+    this.registryRefresh = null;
   }
 
   connect() {
@@ -128,7 +136,20 @@ class HomeAssistantClient extends EventEmitter {
       return;
     }
 
-    if (message.type === 'event' && message.event && message.event.event_type === 'state_changed') {
+    if (message.type !== 'event' || !message.event) {
+      if (message.id && this.pending.has(message.id)) {
+        const pending = this.pending.get(message.id);
+        this.pending.delete(message.id);
+        if (message.success === false) {
+          pending.reject(new Error(message.error && message.error.message ? message.error.message : 'HA command failed'));
+        } else {
+          pending.resolve(message.result);
+        }
+      }
+      return;
+    }
+
+    if (message.event.event_type === STATE_CHANGED_EVENT) {
       if (this.initialStateSync && this.initialStateSync.ws === ws) {
         this.initialStateSync.events.push(message.event);
         return;
@@ -137,13 +158,16 @@ class HomeAssistantClient extends EventEmitter {
       return;
     }
 
-    if (message.id && this.pending.has(message.id)) {
-      const pending = this.pending.get(message.id);
-      this.pending.delete(message.id);
-      if (message.success === false) {
-        pending.reject(new Error(message.error && message.error.message ? message.error.message : 'HA command failed'));
-      } else {
-        pending.resolve(message.result);
+    if (REGISTRY_UPDATED_EVENTS.has(message.event.event_type)) {
+      if (this.initialStateSync && this.initialStateSync.ws === ws) {
+        this.initialStateSync.registryRefreshRequired = true;
+        return;
+      }
+
+      try {
+        await this.refreshRegistries(ws);
+      } catch (error) {
+        this.emit('error', error);
       }
     }
   }
@@ -169,30 +193,78 @@ class HomeAssistantClient extends EventEmitter {
   }
 
   async loadInitialData(ws = this.ws) {
-    const sync = { ws, events: [] };
+    const sync = { ws, events: [], registryRefreshRequired: false };
     this.initialStateSync = sync;
 
-    await this.send('subscribe_events', { event_type: 'state_changed' });
-    const [states, entityRegistry, deviceRegistry, areaRegistry] = await Promise.all([
+    await Promise.all([
+      STATE_CHANGED_EVENT,
+      ...REGISTRY_UPDATED_EVENTS
+    ].map((event_type) => this.send('subscribe_events', { event_type })));
+    const [states, registries] = await Promise.all([
       this.send('get_states'),
-      this.send('config/entity_registry/list'),
-      this.send('config/device_registry/list'),
-      this.send('config/area_registry/list')
+      this.loadRegistries()
     ]);
 
     if (this.ws !== ws || this.initialStateSync !== sync) {
       return;
     }
 
-    this.emit('registries', {
-      entity: entityRegistry || [],
-      device: deviceRegistry || [],
-      area: areaRegistry || []
-    });
+    this.emit('registries', registries);
     this.emit('states', states || []);
     this.initialStateSync = null;
     for (const event of sync.events) {
       this.emit('state_changed', event);
+    }
+    if (sync.registryRefreshRequired) {
+      try {
+        await this.refreshRegistries(ws);
+      } catch (error) {
+        this.emit('error', error);
+      }
+    }
+  }
+
+  async loadRegistries() {
+    const [entity, device, area] = await Promise.all([
+      this.send('config/entity_registry/list'),
+      this.send('config/device_registry/list'),
+      this.send('config/area_registry/list')
+    ]);
+    return {
+      entity: entity || [],
+      device: device || [],
+      area: area || []
+    };
+  }
+
+  async refreshRegistries(ws = this.ws) {
+    if (!ws || this.ws !== ws) {
+      return;
+    }
+
+    if (this.registryRefresh && this.registryRefresh.ws === ws) {
+      this.registryRefresh.refreshAgain = true;
+      return this.registryRefresh.promise;
+    }
+
+    const refresh = { ws, refreshAgain: false, promise: null };
+    refresh.promise = (async () => {
+      do {
+        refresh.refreshAgain = false;
+        const registries = await this.loadRegistries();
+        if (this.ws !== ws) {
+          return;
+        }
+        this.emit('registries', registries);
+      } while (refresh.refreshAgain && this.ws === ws);
+    })();
+    this.registryRefresh = refresh;
+    try {
+      await refresh.promise;
+    } finally {
+      if (this.registryRefresh === refresh) {
+        this.registryRefresh = null;
+      }
     }
   }
 }
