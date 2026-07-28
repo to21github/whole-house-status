@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.27 - 2026-07-28
+
+- Rename the add-on and custom repository to 全屋设备状态.
+
 ## 0.1.26 - 2026-07-28
 
 - Show active water-leak sensors as a red "漏水" alert instead of the generic "故障" label.
