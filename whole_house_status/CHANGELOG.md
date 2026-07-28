@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.26 - 2026-07-28
+
+- Show active water-leak sensors as a red "漏水" alert instead of the generic "故障" label.
+
 ## 0.1.25 - 2026-07-26
 
 - Refresh Home Assistant registries when device, entity, or area assignments change so room grouping updates without restarting the add-on.

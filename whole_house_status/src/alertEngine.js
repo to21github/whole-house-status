@@ -30,7 +30,6 @@ const FAULT_DEVICE_CLASSES = new Set([
   'smoke',
   'gas',
   'carbon_monoxide',
-  'moisture',
   'battery'
 ]);
 
@@ -51,6 +50,15 @@ function isFault(entity) {
     isBinarySensor(entity) &&
     entity.state === 'on' &&
     FAULT_DEVICE_CLASSES.has(entity.attributes && entity.attributes.device_class)
+  );
+}
+
+function isWaterDetected(entity) {
+  return Boolean(
+    isBinarySensor(entity) &&
+    entity.state === 'on' &&
+    entity.attributes &&
+    entity.attributes.device_class === 'moisture'
   );
 }
 
@@ -178,6 +186,16 @@ class AlertEngine {
         label: '离线',
         color: 'red',
         reason: 'disconnected'
+      };
+    }
+
+    if (isWaterDetected(entity)) {
+      this.reset(entityId);
+      return {
+        status: STATUS.ERROR,
+        label: '漏水',
+        color: 'red',
+        reason: 'water_detected'
       };
     }
 
