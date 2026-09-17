@@ -1,125 +1,125 @@
-# Changelog
+# 更新日志
 
 ## 1.0.0 - 2026-09-17
 
-- Skip unchanged dashboard broadcasts so idle connections no longer receive identical snapshots every second, and serialize each broadcast only once for all clients.
-- Keep the valid states when Home Assistant returns an invalid entry during a full state sync.
-- Align the package version with the add-on release version.
-- Simplify the repository by removing test tooling and development checks.
+- 跳过内容未变化的仪表盘广播，空闲连接不再每秒收到相同快照，且每次广播只序列化一次供所有客户端使用。
+- 全量状态同步时，即使 Home Assistant 返回无效条目，也保留其余有效状态。
+- 软件包版本与插件发布版本保持一致。
+- 移除测试工具与开发检查，精简仓库。
 
 ## 0.1.27 - 2026-07-28
 
-- Rename the add-on and custom repository to 全屋设备状态.
+- 插件与自定义仓库更名为「全屋设备状态」。
 
 ## 0.1.26 - 2026-07-28
 
-- Show active water-leak sensors as a red "漏水" alert instead of the generic "故障" label.
+- 激活中的漏水传感器显示为红色「漏水」告警，替代通用的「故障」标签。
 
 ## 0.1.25 - 2026-07-26
 
-- Refresh Home Assistant registries when device, entity, or area assignments change so room grouping updates without restarting the add-on.
+- 当设备、实体或区域分配变更时自动刷新 Home Assistant 注册表，房间分组无需重启插件即可更新。
 
 ## 0.1.24 - 2026-07-20
 
-- Keep the selected room's highlight while it is hovered.
-- Apply background-only hover feedback to the room-sort and display controls.
+- 鼠标悬停时保持所选房间的高亮状态。
+- 房间排序与显示控件采用仅背景色的悬停反馈。
 
 ## 0.1.23 - 2026-07-20
 
-- Allow several room-order adjustments in one sorting session and save the final order when the sort control is closed.
-- Change room-filter hover feedback to a background color only, without a highlighted border.
+- 单次排序会话中允许多次调整房间顺序，关闭排序控件时保存最终顺序。
+- 房间筛选悬停反馈改为仅背景色变化，不再高亮边框。
 
 ## 0.1.22 - 2026-07-19
 
-- Use the document's usable viewport for display-menu placement so desktop scrollbars cannot obscure it.
-- Keep the display-menu frame and label within the available viewport, including narrow or short screens.
+- 显示菜单按文档可用视口定位，避免被桌面滚动条遮挡。
+- 显示菜单边框和标签保持在可用视口内，包括窄屏或矮屏。
 
 ## 0.1.21 - 2026-07-19
 
-- Position the display menu within the viewport automatically, including when the filter controls are at an edge or the viewport is short.
+- 显示菜单自动定位在视口内，包括筛选控件位于边缘或视口较矮的情况。
 
 ## 0.1.20 - 2026-07-19
 
-- Keep mobile room sort and display controls together, and prevent the display menu from extending beyond the viewport.
+- 移动端房间排序与显示控件保持相邻，显示菜单不再超出视口。
 
 ## 0.1.19 - 2026-07-19
 
-- Fix runtime room-order saves by unwrapping the Supervisor options response before updating the add-on configuration.
+- 修复运行时房间顺序保存失败的问题：更新插件配置前先解包 Supervisor options 响应。
 
 ## 0.1.18 - 2026-07-19
 
-- Add dashboard drag sorting for room filters and persist the resulting `rooms.order` through the Supervisor API.
-- Keep `全部` first and `未分组` last while sorting rooms at runtime.
+- 仪表盘房间筛选支持拖拽排序，结果通过 Supervisor API 持久化为 `rooms.order`。
+- 运行时房间排序保持「全部」在首位、「未分组」在末位。
 
 ## 0.1.17
 
-- Add Simplified Chinese labels and descriptions for Add-on configuration fields.
-- Simplify the source package by removing development plans and test tooling.
+- 为插件配置字段添加简体中文标签与描述。
+- 移除开发计划与测试工具，精简源码包。
 
 ## 0.1.16
 
-- Separate ignored entity cards from active warnings and errors.
+- 将已忽略实体卡片与活动警告、错误分开显示。
 
 ## 0.1.15
 
-- Align the mobile room filter grid with the statistics cards and keep the display icon beside the final room.
+- 移动端房间筛选网格与统计卡片对齐，显示图标保持在最后一个房间旁。
 
 ## 0.1.14
 
-- Use a compact custom checkbox for showing ignored entities.
+- 显示已忽略实体的选项改用紧凑的自定义复选框。
 
 ## 0.1.13
 
-- Make the display control a circular icon button.
+- 显示控件改为圆形图标按钮。
 
 ## 0.1.12
 
-- Keep unassigned rooms last, align mobile room controls, and improve display and card readability.
+- 未分组房间保持在末位，对齐移动端房间控件，改进显示与卡片可读性。
 
 ## 0.1.11
 
-- Fit the ignored-entity display option to its content.
+- 已忽略实体显示选项按内容自适应宽度。
 
 ## 0.1.10
 
-- Reduce dashboard top spacing and compact the ignored-entity display menu.
+- 减小仪表盘顶部间距，压缩已忽略实体显示菜单。
 
 ## 0.1.9
 
-- Keep mobile room selector controls at a fixed width when their final row is incomplete.
+- 移动端房间选择控件在末行未占满时保持固定宽度。
 
 ## 0.1.8
 
-- Compact room selector and display control frames without changing text sizes.
+- 在不改变文字大小的前提下压缩房间选择与显示控件边框。
 
 ## 0.1.7
 
-- Add persistent dashboard-only entity ignore actions without changing Home Assistant visibility.
+- 新增仅作用于仪表盘的实体忽略操作并持久化，不改变实体在 Home Assistant 中的可见性。
 
 ## 0.1.6
 
-- Release an updated Home Assistant Add-on package.
+- 发布更新后的 Home Assistant 插件包。
 
 ## 0.1.5
 
-- Add the Home Assistant Add-on changelog required for Supervisor updates.
+- 添加 Supervisor 更新所需的插件更新日志。
 
 ## 0.1.4
 
-- Reduce the dashboard title size.
+- 减小仪表盘标题字号。
 
 ## 0.1.3
 
-- Keep five entity cards per row at standard desktop widths.
+- 标准桌面宽度下保持每行五张实体卡片。
 
 ## 0.1.2
 
-- Use compact horizontal statistic cards and a five-column desktop entity grid.
+- 采用紧凑的水平统计卡片与五列桌面实体网格。
 
 ## 0.1.1
 
-- Treat Home Assistant hidden entities as ignored dashboard entities.
+- 在 Home Assistant 中隐藏的实体，在仪表盘中视为已忽略。
 
 ## 0.1.0
 
-- Initial Home Assistant Add-on release.
+- Home Assistant 插件首个发布版本。
