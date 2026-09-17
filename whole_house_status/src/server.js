@@ -188,11 +188,31 @@ function createServer({
     }
   }
 
+  let lastBroadcastSignature = null;
+
+  function sendToClients(message) {
+    for (const client of clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    }
+  }
+
   function broadcast() {
     const payload = snapshot();
-    for (const client of clients) {
-      send(client, payload);
+    // updated_at marks the last actual change, so exclude it from change detection.
+    lastBroadcastSignature = JSON.stringify({ ...payload, updated_at: undefined });
+    sendToClients(JSON.stringify(payload));
+  }
+
+  function broadcastRefresh() {
+    const payload = snapshot();
+    const signature = JSON.stringify({ ...payload, updated_at: undefined });
+    if (signature === lastBroadcastSignature) {
+      return;
     }
+    lastBroadcastSignature = signature;
+    sendToClients(JSON.stringify(payload));
   }
 
   async function handleBrowserCommand(client, rawMessage) {
@@ -290,7 +310,7 @@ function createServer({
 
   let refreshTimer = setInterval(() => {
     if (clients.size > 0) {
-      broadcast();
+      broadcastRefresh();
     }
   }, refreshIntervalMs);
   refreshTimer.unref();
