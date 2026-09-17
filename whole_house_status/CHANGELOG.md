@@ -5,7 +5,7 @@
 - Skip unchanged dashboard broadcasts so idle connections no longer receive identical snapshots every second, and serialize each broadcast only once for all clients.
 - Keep the valid states when Home Assistant returns an invalid entry during a full state sync.
 - Align the package version with the add-on release version.
-- Add continuous integration checks for unit and frontend tests.
+- Simplify the repository by removing test tooling and development checks.
 
 ## 0.1.27 - 2026-07-28
 
