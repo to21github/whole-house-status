@@ -40,18 +40,31 @@ button {
   padding: 24px clamp(28px, 5vw, 64px) clamp(28px, 5vw, 64px);
 }
 
-.title {
-  min-width: 0;
+.title-block {
   margin: 0 0 32px;
   padding: 0 0 24px;
   border-bottom: 1px solid var(--divider);
+}
+
+.title {
+  min-width: 0;
+  margin: 0;
   color: var(--text);
   font-size: 32px;
   font-weight: 700;
   line-height: 1.2;
-  text-align: center;
+  text-align: left;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .stats {
@@ -496,10 +509,18 @@ button {
     padding: 20px 18px 48px;
   }
 
-  .title {
+  .title-block {
     margin-bottom: 24px;
     padding-bottom: 20px;
+  }
+
+  .title {
     font-size: 26px;
+  }
+
+  .subtitle {
+    margin-top: 6px;
+    font-size: 13px;
   }
 
   .stats {
