@@ -11,13 +11,15 @@ class StateStore {
     const nextStates = new Map();
     for (const state of states) {
       if (!isValidState(state)) {
-        return;
+        // Skip the invalid entry and keep the remaining valid states.
+        continue;
       }
 
       try {
         nextStates.set(state.entity_id, structuredClone(state));
       } catch {
-        return;
+        // Skip non-cloneable entries without discarding the valid ones.
+        continue;
       }
     }
 
