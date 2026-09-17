@@ -1,5 +1,6 @@
 .superpowers/
 .worktrees/
+.reasonix/
 node_modules/
 dist/
 coverage/
