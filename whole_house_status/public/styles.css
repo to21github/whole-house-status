@@ -49,9 +49,10 @@ button {
 .title {
   min-width: 0;
   margin: 0;
-  color: var(--text);
-  font-size: 32px;
-  font-weight: 700;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
   line-height: 1.2;
   text-align: left;
   overflow-wrap: anywhere;
@@ -60,8 +61,8 @@ button {
 
 .subtitle {
   margin: 8px 0 0;
-  color: var(--muted);
-  font-size: 14px;
+  color: #9a9a9a;
+  font-size: 12px;
   line-height: 1.4;
   text-align: left;
   overflow-wrap: anywhere;
@@ -515,12 +516,12 @@ button {
   }
 
   .title {
-    font-size: 26px;
+    font-size: 22px;
   }
 
   .subtitle {
     margin-top: 6px;
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .stats {

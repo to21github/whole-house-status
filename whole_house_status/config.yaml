@@ -1,5 +1,5 @@
 name: 全屋设备状态
-version: "1.0.4"
+version: "1.1.0"
 slug: whole_house_status
 description: 全屋设备状态监控面板
 url: https://github.com/to21github/whole-house-status
