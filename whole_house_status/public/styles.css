@@ -35,7 +35,7 @@ button {
 
 .page {
   width: 100%;
-  max-width: 1500px;
+  max-width: 1506px;
   margin: 0 auto;
   padding: 24px clamp(28px, 5vw, 64px) clamp(28px, 5vw, 64px);
 }
