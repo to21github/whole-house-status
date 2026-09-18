@@ -49,12 +49,15 @@ class StateStore {
     }
   }
 
-  getStateMap() {
-    return Object.fromEntries([...this.states.entries()].map(([entityId, state]) => [entityId, structuredClone(state)]));
-  }
-
-  getStates() {
-    return [...this.states.values()].map((state) => structuredClone(state));
+  getStateMap(predicate) {
+    const result = {};
+    for (const [entityId, state] of this.states) {
+      if (predicate && !predicate(state)) {
+        continue;
+      }
+      result[entityId] = structuredClone(state);
+    }
+    return result;
   }
 }
 

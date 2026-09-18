@@ -1,6 +1,6 @@
 {
   "name": "whole-house-status-addon",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Home Assistant Add-on for whole-house device status monitoring.",
   "main": "src/server.js",
   "type": "commonjs",

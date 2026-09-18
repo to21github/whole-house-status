@@ -5,7 +5,7 @@ const WebSocket = require('ws');
 const { loadOptions, normalizeOptions } = require('./options');
 const { AlertEngine } = require('./alertEngine');
 const { StateStore } = require('./stateStore');
-const { buildViewModel } = require('./viewModel');
+const { buildViewModel, domainOf } = require('./viewModel');
 const { HomeAssistantClient } = require('./haClient');
 const { IgnoredEntityStore, isEntityId } = require('./ignoredEntityStore');
 const { SupervisorOptionsClient } = require('./supervisorOptionsClient');
@@ -20,6 +20,8 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const INGRESS_PROXY_ADDRESS = '172.30.32.2';
 const SHUTDOWN_TIMEOUT_MS = 5_000;
 const REFRESH_INTERVAL_MS = 1_000;
+// 状态事件突发（如 Zigbee 网络抖动）时合并为一次广播，避免逐条触发全量快照。
+const STATE_CHANGE_DEBOUNCE_MS = 150;
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -112,6 +114,19 @@ function isRoomOrderCommand(command, displayedRooms) {
   );
 }
 
+function createEntityRelevanceFilter(options) {
+  const domains = new Set(options.entities.include_domains);
+  const powerSensorIds = new Set(
+    options.alerts.high_power_rules
+      .map((rule) => rule.power_sensor)
+      .filter(Boolean)
+  );
+  return (entity) => {
+    const entityId = entity && typeof entity.entity_id === 'string' ? entity.entity_id : '';
+    return Boolean(entityId) && (powerSensorIds.has(entityId) || domains.has(domainOf(entityId)));
+  };
+}
+
 function createServer({
   useMockData = process.env.USE_MOCK_DATA === 'true',
   token = process.env.SUPERVISOR_TOKEN,
@@ -143,6 +158,7 @@ function createServer({
 
   const store = new StateStore();
   const alertEngine = new AlertEngine(options);
+  const isRelevantEntity = createEntityRelevanceFilter(options);
   const dashboardIgnoreStore = ignoredEntityStore || new IgnoredEntityStore({
     filePath: ignoredEntitiesPath,
     logger
@@ -158,7 +174,7 @@ function createServer({
 
   function snapshot() {
     return buildViewModel({
-      states: store.getStateMap(),
+      states: store.getStateMap(isRelevantEntity),
       registries,
       options,
       alertEngine,
@@ -189,6 +205,7 @@ function createServer({
   }
 
   let lastBroadcastSignature = null;
+  let stateChangeBroadcastTimer = null;
 
   function sendToClients(message) {
     for (const client of clients) {
@@ -196,6 +213,24 @@ function createServer({
         client.send(message);
       }
     }
+  }
+
+  function cancelPendingStateChangeBroadcast() {
+    if (stateChangeBroadcastTimer) {
+      clearTimeout(stateChangeBroadcastTimer);
+      stateChangeBroadcastTimer = null;
+    }
+  }
+
+  function scheduleStateChangeBroadcast() {
+    if (stateChangeBroadcastTimer || clients.size === 0) {
+      return;
+    }
+    stateChangeBroadcastTimer = setTimeout(() => {
+      stateChangeBroadcastTimer = null;
+      broadcastRefresh();
+    }, STATE_CHANGE_DEBOUNCE_MS);
+    stateChangeBroadcastTimer.unref();
   }
 
   function broadcast() {
@@ -316,6 +351,7 @@ function createServer({
   refreshTimer.unref();
 
   function stopRefresh() {
+    cancelPendingStateChangeBroadcast();
     if (!refreshTimer) {
       return;
     }
@@ -359,7 +395,7 @@ function createServer({
     });
     haClient.on('state_changed', (event) => {
       store.applyStateChanged(event);
-      broadcast();
+      scheduleStateChangeBroadcast();
     });
     haClient.on('error', (error) => logger.error(error.message));
     haClient.connect();
