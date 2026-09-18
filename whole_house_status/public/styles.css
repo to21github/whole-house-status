@@ -556,7 +556,6 @@ button {
 
   .filter-controls {
     display: flex;
-    grid-column: span 2;
     align-self: start;
     gap: 10px;
   }
